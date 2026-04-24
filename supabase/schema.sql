@@ -1,0 +1,187 @@
+create extension if not exists pgcrypto;
+
+create type public.app_role as enum ('user', 'admin');
+create type public.plan_key as enum ('free', 'creator', 'pro', 'business');
+create type public.subscription_status as enum ('trialing', 'active', 'past_due', 'canceled', 'incomplete');
+create type public.boost_job_status as enum ('draft', 'queued', 'processing', 'rendering', 'completed', 'failed');
+create type public.processor_provider_key as enum ('mock', 'n8n');
+create type public.boost_preset_key as enum ('hook-boost', 'caption-boost', 'retention-boost', 'balanced');
+create type public.target_platform_key as enum ('tiktok', 'youtube-shorts', 'instagram-reels');
+
+create table public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text not null,
+  full_name text,
+  avatar_url text,
+  role app_role not null default 'user',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.plans (
+  id uuid primary key default gen_random_uuid(),
+  key plan_key unique not null,
+  name text not null,
+  monthly_credits integer not null,
+  max_file_size_mb integer not null,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null unique references public.profiles(id) on delete cascade,
+  stripe_customer_id text,
+  stripe_subscription_id text,
+  plan_key plan_key not null default 'free',
+  status subscription_status not null default 'trialing',
+  credits_total integer not null default 2,
+  credits_used integer not null default 0,
+  current_period_start timestamptz,
+  current_period_end timestamptz,
+  cancel_at_period_end boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.usage_ledger (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  job_id uuid,
+  change_amount integer not null,
+  reason text not null,
+  created_at timestamptz not null default now()
+);
+
+create table public.boost_jobs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  project_name text not null,
+  status boost_job_status not null default 'draft',
+  preset boost_preset_key not null default 'balanced',
+  target_platform target_platform_key not null default 'tiktok',
+  description text,
+  subtitle_style text,
+  add_opening_text boolean not null default true,
+  crop_mode text,
+  extra_notes text,
+  processor_provider processor_provider_key not null default 'mock',
+  external_job_id text,
+  source_video_url text not null,
+  source_storage_path text,
+  source_file_name text,
+  output_video_url text,
+  output_poster_url text,
+  error_message text,
+  progress integer not null default 0 check (progress >= 0 and progress <= 100),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  completed_at timestamptz
+);
+
+create table public.admin_events (
+  id uuid primary key default gen_random_uuid(),
+  actor_user_id uuid references public.profiles(id) on delete set null,
+  target_type text not null,
+  target_id text not null,
+  action text not null,
+  metadata jsonb,
+  created_at timestamptz not null default now()
+);
+
+insert into public.plans (key, name, monthly_credits, max_file_size_mb)
+values
+  ('free', 'Free', 2, 150),
+  ('creator', 'Creator', 40, 500),
+  ('pro', 'Pro', 150, 1024),
+  ('business', 'Business', 500, 2048)
+on conflict (key) do update
+set
+  name = excluded.name,
+  monthly_credits = excluded.monthly_credits,
+  max_file_size_mb = excluded.max_file_size_mb,
+  active = true,
+  updated_at = now();
+
+alter table public.profiles enable row level security;
+alter table public.plans enable row level security;
+alter table public.subscriptions enable row level security;
+alter table public.usage_ledger enable row level security;
+alter table public.boost_jobs enable row level security;
+alter table public.admin_events enable row level security;
+
+create policy "Users read own profile" on public.profiles for select using (auth.uid() = id);
+create policy "Users update own profile" on public.profiles for update using (auth.uid() = id);
+
+create policy "Authenticated users read plans" on public.plans for select to authenticated using (true);
+create policy "Anon users read plans" on public.plans for select to anon using (active = true);
+
+create policy "Users read own subscription" on public.subscriptions for select using (auth.uid() = user_id);
+create policy "Users read own usage ledger" on public.usage_ledger for select using (auth.uid() = user_id);
+create policy "Users read own boost jobs" on public.boost_jobs for select using (auth.uid() = user_id);
+create policy "Users insert own boost jobs" on public.boost_jobs for insert with check (auth.uid() = user_id);
+create policy "Users update own boost jobs" on public.boost_jobs for update using (auth.uid() = user_id);
+
+insert into storage.buckets (id, name, public)
+values ('source-videos', 'source-videos', true)
+on conflict (id) do nothing;
+
+create policy "Users upload source videos" on storage.objects
+for insert to authenticated
+with check (bucket_id = 'source-videos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy "Users read source videos" on storage.objects
+for select to authenticated
+using (bucket_id = 'source-videos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy "Service role manages source videos" on storage.objects
+for all
+using (bucket_id = 'source-videos')
+with check (bucket_id = 'source-videos');
+
+create function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  free_plan public.plans%rowtype;
+begin
+  select * into free_plan from public.plans where key = 'free';
+
+  insert into public.profiles (id, email, full_name, avatar_url)
+  values (new.id, new.email, new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'avatar_url');
+
+  insert into public.subscriptions (
+    user_id,
+    plan_key,
+    status,
+    credits_total,
+    credits_used,
+    current_period_start,
+    current_period_end
+  )
+  values (
+    new.id,
+    'free',
+    'trialing',
+    coalesce(free_plan.monthly_credits, 2),
+    0,
+    now(),
+    now() + interval '30 days'
+  );
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+after insert on auth.users
+for each row execute procedure public.handle_new_user();
+
+create index boost_jobs_user_created_idx on public.boost_jobs(user_id, created_at desc);
+create index boost_jobs_status_idx on public.boost_jobs(status);
+create index usage_ledger_user_created_idx on public.usage_ledger(user_id, created_at desc);
