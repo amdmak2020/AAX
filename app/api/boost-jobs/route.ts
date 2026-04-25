@@ -17,6 +17,24 @@ const createBoostSchema = z.object({
 const DEFAULT_PRESET = "balanced" as const;
 const DEFAULT_TARGET_PLATFORM = "tiktok" as const;
 
+function wantsJson(request: Request) {
+  return request.headers.get("accept")?.includes("application/json") ?? false;
+}
+
+function buildCreateErrorUrl(request: Request, code: string) {
+  const url = new URL("/app/create", request.url);
+  url.searchParams.set("error", code);
+  return url;
+}
+
+function respondWithCreateError(request: Request, code: string, message: string, status: number) {
+  if (wantsJson(request)) {
+    return NextResponse.json({ error: message, code }, { status });
+  }
+
+  return NextResponse.redirect(buildCreateErrorUrl(request, code), { status: 303 });
+}
+
 function getProjectName(sourceUrl: string, file: File | null) {
   if (file?.name?.trim()) {
     const withoutExtension = file.name.replace(/\.[^.]+$/, "").trim();
@@ -79,7 +97,7 @@ export async function POST(request: Request) {
 
     if (!parsed.success) {
       const descriptionError = parsed.error.flatten().fieldErrors.description?.[0];
-      return NextResponse.json({ error: descriptionError ?? "Invalid boost job payload." }, { status: 400 });
+      return respondWithCreateError(request, "missing_description", descriptionError ?? "Invalid boost job payload.", 400);
     }
 
     const hasFile = isUploadedFile(file);
@@ -90,11 +108,11 @@ export async function POST(request: Request) {
     const projectName = getProjectName(sourceUrl, useFileSource ? file : null);
 
     if (!useFileSource && !useUrlSource) {
-      return NextResponse.json({ error: "Choose either a source upload or a YouTube / X URL." }, { status: 400 });
+      return respondWithCreateError(request, "missing_source", "Choose either a source upload or a YouTube / X URL.", 400);
     }
 
     if (useUrlSource && !isSupportedSourceUrl(sourceUrl)) {
-      return NextResponse.json({ error: "Only YouTube and X / Twitter links are supported right now." }, { status: 400 });
+      return respondWithCreateError(request, "unsupported_source", "Only YouTube and X / Twitter links are supported right now.", 400);
     }
 
     const supabase = await createSupabaseServerClient();
@@ -103,7 +121,7 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.redirect(new URL("/login?next=/app/create", request.url));
+      return NextResponse.redirect(new URL("/login?next=/app/create", request.url), { status: 303 });
     }
 
     const admin = createSupabaseAdminClient();
@@ -117,13 +135,13 @@ export async function POST(request: Request) {
     const usageBypassed = bypassUsageLimits();
 
     if (!usageBypassed && subscription.credits_used >= subscription.credits_total) {
-      return NextResponse.json({ error: "No boosts remaining on the current plan." }, { status: 402 });
+      return respondWithCreateError(request, "no_credits", "No boosts remaining on the current plan.", 402);
     }
 
     const uploadLimitMb = Math.min(plan.maxFileSizeMb, sourceUploadMaxMb);
 
     if (useFileSource && file.size > uploadLimitMb * 1024 * 1024) {
-      return NextResponse.json({ error: `Uploads are currently limited to ${uploadLimitMb}MB.` }, { status: 400 });
+      return respondWithCreateError(request, "file_too_large", `Uploads are currently limited to ${uploadLimitMb}MB.`, 400);
     }
 
     const jobId = randomUUID();
@@ -150,7 +168,7 @@ export async function POST(request: Request) {
     });
 
     if (insert.error) {
-      return NextResponse.json({ error: insert.error.message }, { status: 500 });
+      return respondWithCreateError(request, "generic", insert.error.message, 500);
     }
 
     try {
@@ -161,7 +179,7 @@ export async function POST(request: Request) {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not update credit usage.";
-      return NextResponse.json({ error: message }, { status: 500 });
+      return respondWithCreateError(request, "usage_update_failed", message, 500);
     }
 
     const usageLedgerInsert = await admin.from("usage_ledger").insert({
@@ -172,7 +190,7 @@ export async function POST(request: Request) {
     });
 
     if (usageLedgerInsert.error) {
-      return NextResponse.json({ error: usageLedgerInsert.error.message }, { status: 500 });
+      return respondWithCreateError(request, "usage_update_failed", usageLedgerInsert.error.message, 500);
     }
 
     const provider = getProcessorProvider();
@@ -209,6 +227,6 @@ export async function POST(request: Request) {
     return NextResponse.redirect(new URL(`/app/jobs/${jobId}`, request.url), { status: 303 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Boost job creation failed.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return respondWithCreateError(request, "generic", message, 500);
   }
 }
