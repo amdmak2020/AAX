@@ -25,7 +25,7 @@ export function PricingCard({ plan }: PricingCardProps) {
   return (
     <MagneticPanel className="h-full">
       <InteractiveSurface className="h-full rounded-lg">
-        <Card className={cn("interactive-card interactive-lift flex h-full flex-col overflow-hidden", plan.featured && "border-mint/65 bg-mint/[0.08]")}>
+        <Card className={cn("interactive-card interactive-lift pricing-card-shell flex h-full flex-col overflow-hidden", plan.featured && "border-mint/65 bg-mint/[0.08]")}>
           <div className="flex items-center justify-between gap-4">
             <h3 className="text-xl font-black">{plan.name}</h3>
             {plan.featured ? <span className="pulse-chip rounded bg-mint px-2 py-1 text-xs font-black text-ink">Popular</span> : null}
