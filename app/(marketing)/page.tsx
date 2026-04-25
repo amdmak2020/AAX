@@ -1,5 +1,7 @@
 import { CheckCircle2, CircleX, MessageSquareMore } from "lucide-react";
 import Script from "next/script";
+import { InteractiveSurface } from "@/components/effects/interactive-surface";
+import { MagneticPanel } from "@/components/effects/magnetic-panel";
 import { CtaBlock } from "@/components/public/cta-block";
 import { PricingCard } from "@/components/public/pricing-card";
 import { SectionWrapper } from "@/components/public/section-wrapper";
@@ -37,13 +39,13 @@ export default function HomePage() {
         {JSON.stringify(structuredData)}
       </Script>
       <section className="border-b border-pearl/10">
-        <div className="mx-auto max-w-6xl px-5 py-16 md:py-20">
+        <div className="hero-aurora mx-auto max-w-6xl px-5 py-16 md:py-20">
           <div className="mx-auto max-w-3xl text-center">
-            <p className="inline-flex rounded-full border border-pearl/10 bg-white/[0.03] px-4 py-2 text-sm font-bold text-pearl/78">
+            <p className="pulse-chip inline-flex rounded-full border border-pearl/10 bg-white/[0.03] px-4 py-2 text-sm font-bold text-pearl/78">
               Your content is fine. Your retention isn&apos;t.
             </p>
             <h1 className="mt-6 text-balance text-5xl font-black leading-[0.98] md:text-7xl">
-              Turn boring clips into <span className="text-mint">high-retention shorts</span>
+              Turn boring clips into <span className="hero-highlight text-mint">high-retention shorts</span>
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-pearl/66 md:text-xl">
               Stronger hooks, cleaner subtitles, and tighter pacing for people who keep getting skipped.
@@ -58,7 +60,9 @@ export default function HomePage() {
           </div>
 
           <div className="mt-12 grid gap-6 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
-            <div className="rounded-lg border border-pearl/10 bg-[#111418] p-5">
+            <MagneticPanel>
+              <InteractiveSurface className="rounded-lg">
+            <div className="interactive-card interactive-lift rounded-lg border border-pearl/10 bg-[#111418] p-5">
               <div className="inline-flex items-center gap-2 rounded-full border border-coral/20 bg-coral/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-coral">
                 <CircleX className="h-4 w-4" />
                 Before
@@ -78,12 +82,16 @@ export default function HomePage() {
               </div>
               <p className="mt-4 text-sm leading-6 text-pearl/62">Slow start, no captions, easy to scroll past.</p>
             </div>
+              </InteractiveSurface>
+            </MagneticPanel>
 
-            <div className="hidden h-12 w-12 items-center justify-center rounded-full border border-pearl/10 bg-white/[0.03] text-mint lg:flex">
+            <div className="hero-arrow hidden h-12 w-12 items-center justify-center rounded-full border border-pearl/10 bg-white/[0.03] text-mint lg:flex">
               <CheckCircle2 className="h-5 w-5" />
             </div>
 
-            <div className="rounded-lg border border-pearl/10 bg-[#111418] p-5">
+            <MagneticPanel>
+              <InteractiveSurface className="rounded-lg">
+            <div className="interactive-card interactive-lift rounded-lg border border-pearl/10 bg-[#111418] p-5">
               <div className="inline-flex items-center gap-2 rounded-full bg-mint px-3 py-1.5 text-xs font-black uppercase tracking-wide text-ink">
                 <CheckCircle2 className="h-4 w-4" />
                 After
@@ -115,6 +123,8 @@ export default function HomePage() {
               </div>
               <p className="mt-4 text-sm leading-6 text-pearl/62">Clearer opening, cleaner captions, and more watchable pacing.</p>
             </div>
+              </InteractiveSurface>
+            </MagneticPanel>
           </div>
 
         </div>
@@ -127,7 +137,9 @@ export default function HomePage() {
         title="Fix the video by chatting with it"
       >
         <div className="grid gap-6 lg:grid-cols-[0.88fr_1.12fr]">
-          <div className="rounded-lg border border-pearl/10 bg-[#111418] p-5">
+          <MagneticPanel>
+            <InteractiveSurface className="rounded-lg">
+          <div className="interactive-card interactive-lift rounded-lg border border-pearl/10 bg-[#111418] p-5">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/[0.03] px-3 py-2 text-sm font-bold text-pearl/76">
               <MessageSquareMore className="h-4 w-4 text-mint" />
               Chat editor
@@ -147,9 +159,13 @@ export default function HomePage() {
               </div>
             </div>
           </div>
+            </InteractiveSurface>
+          </MagneticPanel>
 
-          <div className="rounded-lg border border-pearl/10 bg-[#111418] p-5">
-            <div className="rounded-lg border border-pearl/10 bg-[#15191f] p-4">
+          <MagneticPanel>
+            <InteractiveSurface className="rounded-lg">
+          <div className="interactive-card interactive-lift rounded-lg border border-pearl/10 bg-[#111418] p-5">
+            <div className="interactive-card rounded-lg border border-pearl/10 bg-[#15191f] p-4">
               <div className="relative aspect-video overflow-hidden rounded-lg border border-pearl/10 bg-black">
                 <div className="absolute inset-x-0 top-0 h-[62%] bg-[radial-gradient(circle_at_78%_18%,rgba(66,246,177,0.18),transparent_18%),radial-gradient(circle_at_62%_22%,rgba(255,191,128,0.18),transparent_14%),linear-gradient(120deg,#2b211d_0%,#15191c_72%)]" />
                 <div className="absolute left-4 top-4 rounded-md bg-black/82 px-3 py-2 text-left text-[10px] font-black uppercase leading-4 text-mint">
@@ -176,6 +192,8 @@ export default function HomePage() {
               </div>
             </div>
           </div>
+            </InteractiveSurface>
+          </MagneticPanel>
         </div>
       </SectionWrapper>
 

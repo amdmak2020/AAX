@@ -47,7 +47,6 @@ export function AaxLogo({
 
       {showWordmark ? (
         <span className="leading-none">
-          <span className="block text-sm font-black uppercase tracking-[0.28em] text-pearl/58">AAX</span>
           <span className="block text-base font-black">{compact ? "AutoAgentX" : "AutoAgentX Studio"}</span>
         </span>
       ) : null}
