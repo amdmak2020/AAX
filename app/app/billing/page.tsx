@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { planCatalog } from "@/lib/app-config";
 import { getViewerWorkspace } from "@/lib/app-data";
-import { getPaddlePriceId, hasPaddleApiKey, hasPaddleCheckoutConfig } from "@/lib/env";
+import { getLemonSqueezyVariantId, hasLemonSqueezyApiKey, hasLemonSqueezyCheckoutConfig } from "@/lib/env";
 
 const billingMessages = {
   success: {
     tone: "border-mint/20 bg-mint/10",
     title: "Checkout completed",
-    body: "Your subscription was updated. Credits will reflect the new plan as Stripe finishes syncing."
+    body: "Your subscription was updated. Credits will reflect the new plan as Lemon Squeezy finishes syncing."
   },
   cancelled: {
     tone: "border-pearl/10 bg-white/[0.03]",
@@ -30,8 +30,13 @@ const billingMessages = {
   },
   "missing-configuration": {
     tone: "border-lemon/20 bg-lemon/10",
-    title: "Paddle checkout is not ready yet",
-    body: "Add the Paddle client token, webhook secret, and plan price IDs to turn on paid checkout."
+    title: "Lemon Squeezy checkout is not ready yet",
+    body: "Add the Lemon Squeezy store ID, store URL, webhook secret, and plan variant IDs to turn on paid checkout."
+  },
+  failed: {
+    tone: "border-coral/20 bg-coral/10",
+    title: "Checkout could not start",
+    body: "We hit a billing setup problem. Double-check your Lemon Squeezy API key, store ID, and plan variant IDs."
   }
 } as const;
 
@@ -51,8 +56,8 @@ export default async function AppBillingPage({
     (portalState && billingMessages[portalState as keyof typeof billingMessages]) ||
     null;
 
-  const paddleApiReady = hasPaddleApiKey();
-  const paddleCheckoutReady = hasPaddleCheckoutConfig();
+  const lemonApiReady = hasLemonSqueezyApiKey();
+  const lemonCheckoutReady = hasLemonSqueezyCheckoutConfig();
   const currentPlan = planCatalog[workspace.subscription.plan_key];
   const remainingCredits = Math.max(workspace.subscription.credits_total - workspace.subscription.credits_used, 0);
 
@@ -105,10 +110,9 @@ export default async function AppBillingPage({
             {workspace.subscription.plan_key === "free" ? (
               <Button href="#plans">Upgrade now</Button>
             ) : (
-              <form action="/api/stripe/portal" method="post">
+              <form action="/api/lemonsqueezy/portal" method="post">
                 <Button
-                  disabled={paddleCheckoutReady && !workspace.subscription.stripe_customer_id}
-                  href={!paddleCheckoutReady ? "/app/billing?portal=missing-configuration" : undefined}
+                  href={!lemonCheckoutReady ? "/app/billing?portal=missing-configuration" : undefined}
                   type="submit"
                   variant="secondary"
                 >
@@ -116,11 +120,11 @@ export default async function AppBillingPage({
                 </Button>
               </form>
             )}
-            {!paddleCheckoutReady ? (
+            {!lemonCheckoutReady ? (
               <p className="max-w-[260px] text-xs leading-5 text-pearl/50">
-                {paddleApiReady
-                  ? "Paddle API key is in place. Add the client token, webhook secret, and price IDs to finish checkout."
-                  : "Add your Paddle API key first, then the client token, webhook secret, and price IDs."}
+                {lemonApiReady
+                  ? "Lemon Squeezy API access is in place. Add the store ID, store URL, webhook secret, and plan variant IDs to finish checkout."
+                  : "Add your Lemon Squeezy API key first, then the store ID, store URL, webhook secret, and plan variant IDs."}
               </p>
             ) : null}
           </div>
@@ -157,7 +161,7 @@ export default async function AppBillingPage({
         {Object.values(planCatalog).map((plan) => (
           (() => {
             const paidPlan = plan.key !== "free" ? plan : null;
-            const priceId = paidPlan ? getPaddlePriceId(paidPlan.key) : null;
+            const variantId = paidPlan ? getLemonSqueezyVariantId(paidPlan.key) : null;
 
             return (
           <PricingCard
@@ -172,30 +176,29 @@ export default async function AppBillingPage({
                   ? "Current plan"
                   : plan.priceMonthly === 0
                     ? "Stay on Free"
-                    : paddleCheckoutReady
+                    : lemonCheckoutReady
                       ? `Upgrade to ${plan.name}`
-                      : "Finish Paddle setup",
+                      : "Finish Lemon Squeezy setup",
               featured: plan.featured,
               features: plan.features,
               ctaDisabled: workspace.subscription.plan_key === plan.key,
               ctaHref:
                 plan.priceMonthly === 0
                   ? "/app"
-                  : !paddleCheckoutReady || !priceId
+                  : !lemonCheckoutReady || !variantId
                     ? "/app/billing?checkout=missing-configuration"
                     : undefined,
               ctaFormAction:
                 plan.priceMonthly > 0 &&
-                paddleCheckoutReady &&
+                lemonCheckoutReady &&
                 workspace.subscription.plan_key !== plan.key &&
-                Boolean(priceId)
-                  ? "/api/stripe/checkout"
+                Boolean(variantId)
+                  ? "/api/lemonsqueezy/checkout"
                   : undefined,
               ctaFields:
-                plan.priceMonthly > 0 && priceId
+                plan.priceMonthly > 0 && variantId
                   ? {
-                      planKey: plan.key,
-                      priceId
+                      planKey: plan.key
                     }
                   : undefined
             }}

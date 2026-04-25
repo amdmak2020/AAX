@@ -20,31 +20,44 @@ export function getProcessorProviderKey() {
   return process.env.PROCESSOR_PROVIDER ?? "mock";
 }
 
+export function hasLemonSqueezyApiKey() {
+  return Boolean(process.env.LEMONSQUEEZY_API_KEY);
+}
+
 export function isStripeConfigured() {
   return Boolean(process.env.STRIPE_SECRET_KEY);
 }
 
-export function hasPaddleApiKey() {
-  return Boolean(process.env.PADDLE_API_KEY);
+export function getLemonSqueezyStoreId() {
+  return process.env.LEMONSQUEEZY_STORE_ID ?? null;
 }
 
-export function hasPaddleCheckoutConfig() {
+export function getLemonSqueezyStoreUrl() {
+  return process.env.LEMONSQUEEZY_STORE_URL ?? null;
+}
+
+export function hasLemonSqueezyCheckoutConfig() {
   return Boolean(
-    process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN &&
-      process.env.PADDLE_CREATOR_PRICE_ID &&
-      process.env.PADDLE_PRO_PRICE_ID &&
-      process.env.PADDLE_BUSINESS_PRICE_ID
+    process.env.LEMONSQUEEZY_API_KEY &&
+      process.env.LEMONSQUEEZY_STORE_ID &&
+      process.env.LEMONSQUEEZY_CREATOR_VARIANT_ID &&
+      process.env.LEMONSQUEEZY_PRO_VARIANT_ID &&
+      process.env.LEMONSQUEEZY_BUSINESS_VARIANT_ID
   );
 }
 
-export function getPaddlePriceId(planKey: Exclude<PlanKey, "free">) {
-  const priceIds = {
-    creator: process.env.PADDLE_CREATOR_PRICE_ID,
-    pro: process.env.PADDLE_PRO_PRICE_ID,
-    business: process.env.PADDLE_BUSINESS_PRICE_ID
+export function getLemonSqueezyVariantId(planKey: Exclude<PlanKey, "free">) {
+  const variantIds = {
+    creator: process.env.LEMONSQUEEZY_CREATOR_VARIANT_ID,
+    pro: process.env.LEMONSQUEEZY_PRO_VARIANT_ID,
+    business: process.env.LEMONSQUEEZY_BUSINESS_VARIANT_ID
   } as const;
 
-  return priceIds[planKey] ?? null;
+  return variantIds[planKey] ?? null;
+}
+
+export function getLemonSqueezyWebhookSecret() {
+  return process.env.LEMONSQUEEZY_WEBHOOK_SECRET ?? null;
 }
 
 export function getStripePriceId(planKey: Exclude<PlanKey, "free">) {

@@ -11,7 +11,7 @@ export default function PricingPage() {
           <p className="mt-6 text-lg leading-8 text-pearl/70">
             Keep it simple: try the product on free, then upgrade when you want more monthly volume.
           </p>
-          <p className="mt-4 text-sm leading-6 text-pearl/56">Paid plans are being finished now. The free plan is live today.</p>
+          <p className="mt-4 text-sm leading-6 text-pearl/56">Free is live now. Paid plans run through Lemon Squeezy once your store details are connected.</p>
         </div>
         <div className="mt-12 grid gap-5 lg:grid-cols-4">
           {plans.map((plan) => (

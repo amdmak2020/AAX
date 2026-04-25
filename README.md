@@ -10,7 +10,7 @@ Production-minded MVP scaffold for a self-serve creator SaaS that improves short
 - React 19 + TypeScript
 - Tailwind CSS
 - Supabase Auth, Postgres, and Storage
-- Paddle-ready billing scaffold (with legacy Stripe scaffold still present in code)
+- Lemon Squeezy billing scaffold
 - Processor provider abstraction with `mock` and `n8n` providers
 
 ## What is in the app
@@ -21,7 +21,7 @@ Production-minded MVP scaffold for a self-serve creator SaaS that improves short
 - Admin area: `/app/admin`
 - File upload flow for source clips
 - Boost job creation and status tracking
-- Paddle setup placeholders, plus legacy Stripe checkout, billing portal, and webhook scaffold
+- Lemon Squeezy checkout, billing portal, and webhook scaffold
 - Supabase schema with plans, subscriptions, usage ledger, boost jobs, and RLS
 
 ## Local setup
@@ -62,24 +62,15 @@ npm run dev -- --hostname localhost --port 3001
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
-### Paddle
+### Lemon Squeezy
 
-- `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN`
-- `PADDLE_API_KEY`
-- `PADDLE_WEBHOOK_SECRET`
-- `PADDLE_CREATOR_PRICE_ID`
-- `PADDLE_PRO_PRICE_ID`
-- `PADDLE_BUSINESS_PRICE_ID`
-- `PADDLE_ENVIRONMENT`
-
-### Legacy Stripe scaffold
-
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
-- `STRIPE_CREATOR_PRICE_ID`
-- `STRIPE_PRO_PRICE_ID`
-- `STRIPE_BUSINESS_PRICE_ID`
+- `LEMONSQUEEZY_API_KEY`
+- `LEMONSQUEEZY_WEBHOOK_SECRET`
+- `LEMONSQUEEZY_STORE_ID`
+- `LEMONSQUEEZY_STORE_URL`
+- `LEMONSQUEEZY_CREATOR_VARIANT_ID`
+- `LEMONSQUEEZY_PRO_VARIANT_ID`
+- `LEMONSQUEEZY_BUSINESS_VARIANT_ID`
 
 ### Processor
 
@@ -176,29 +167,28 @@ The provider is scaffolded so another engineer can connect the existing external
 
 ## Billing setup
 
-Current direction: Paddle.
+Current direction: Lemon Squeezy.
 
-You need four things to turn on paid checkout:
+You need these pieces to turn on paid checkout:
 
-- Paddle API key
-- Paddle client-side token
-- Paddle webhook secret
-- Paddle price IDs for Creator / Pro / Business
+- Lemon Squeezy API key
+- Lemon Squeezy webhook signing secret
+- Store ID
+- Store URL (for the customer portal)
+- Variant IDs for Creator / Pro / Business
 
-The app already has the Paddle API key placeholder path wired in env handling. Once the other three are added, we can swap the remaining legacy Stripe routes for Paddle checkout and webhooks cleanly.
+Routes now wired for Lemon Squeezy:
 
-Legacy Stripe routes still in the repo:
+- [checkout route](C:/Users/asus/Documents/Codex/2026-04-20-i-want-to-build-a-saas/app/api/lemonsqueezy/checkout/route.ts)
+- [portal route](C:/Users/asus/Documents/Codex/2026-04-20-i-want-to-build-a-saas/app/api/lemonsqueezy/portal/route.ts)
+- [webhook route](C:/Users/asus/Documents/Codex/2026-04-20-i-want-to-build-a-saas/app/api/lemonsqueezy/webhook/route.ts)
 
-- [checkout route](C:/Users/asus/Documents/Codex/2026-04-20-i-want-to-build-a-saas/app/api/stripe/checkout/route.ts)
-- [portal route](C:/Users/asus/Documents/Codex/2026-04-20-i-want-to-build-a-saas/app/api/stripe/portal/route.ts)
-- [webhook route](C:/Users/asus/Documents/Codex/2026-04-20-i-want-to-build-a-saas/app/api/stripe/webhook/route.ts)
+The webhook updates the `subscriptions` row from Lemon Squeezy subscription events.
 
-The webhook updates the `subscriptions` row from Stripe events.
-
-For local Stripe webhook testing, point the Stripe CLI or your webhook forwarder at:
+For local webhook testing, point Lemon Squeezy at:
 
 ```txt
-http://localhost:3001/api/stripe/webhook
+http://localhost:3001/api/lemonsqueezy/webhook
 ```
 
 ## Admin
@@ -226,9 +216,9 @@ Each submitted boost debits 1 credit and writes to `usage_ledger`.
 
 - Vercel works well for the Next.js app
 - Supabase handles auth, Postgres, and source uploads
-- Keep `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`, and `STRIPE_WEBHOOK_SECRET` server-only
+- Keep `SUPABASE_SERVICE_ROLE_KEY`, `LEMONSQUEEZY_API_KEY`, and `LEMONSQUEEZY_WEBHOOK_SECRET` server-only
 - Add the production app URL to Supabase redirect settings
-- Add the production Stripe webhook endpoint before going live
+- Add the production Lemon Squeezy webhook endpoint before going live
 
 ## Quality notes
 
