@@ -13,54 +13,41 @@ export function AaxLogo({
   mono = false,
   showWordmark = true
 }: AaxLogoProps) {
-  const gradientId = compact ? "aax-compact-gradient" : "aax-gradient";
-  const stroke = mono ? "currentColor" : `url(#${gradientId})`;
+  const gradientId = compact ? "aax-a-gradient-compact" : "aax-a-gradient";
   const fill = mono ? "currentColor" : `url(#${gradientId})`;
 
   return (
     <span className={cn("inline-flex items-center gap-3", className)}>
-      <svg aria-hidden="true" className="shrink-0" fill="none" viewBox={compact ? "0 0 52 52" : "0 0 60 52"} xmlns="http://www.w3.org/2000/svg">
+      <svg aria-hidden="true" className="shrink-0" fill="none" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
         {!mono ? (
           <defs>
-            <linearGradient id={gradientId} x1="4" x2="56" y1="44" y2="8" gradientUnits="userSpaceOnUse">
+            <linearGradient id={gradientId} x1="10" x2="56" y1="54" y2="12" gradientUnits="userSpaceOnUse">
               <stop stopColor="#A03BFF" />
-              <stop offset="0.52" stopColor="#5A7BFF" />
-              <stop offset="1" stopColor="#55F7FF" />
+              <stop offset="0.55" stopColor="#5A7BFF" />
+              <stop offset="1" stopColor="#21C8FF" />
             </linearGradient>
           </defs>
         ) : null}
 
-        {!compact ? (
-          <path
-            d="M4 43 18.4 11.5c1.4-3 5.7-3 7.1 0L40 43h-8.3l-3.2-7.5H16L12.9 43H4Zm15.1-14.1h6.1l-3-7.2-3.1 7.2Z"
-            fill={fill}
-          />
-        ) : null}
-
-        <g transform={compact ? "translate(0 0)" : "translate(14 2)"}>
-          <circle cx="18" cy="22" r="17" stroke={stroke} strokeWidth="3.5" />
-          <path d="M9 42.2 14.1 35" stroke={stroke} strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" />
-          <path d="M2.5 22h3.4" stroke={stroke} strokeLinecap="round" strokeWidth="3.5" />
-          <path d="M30.1 22h3.4" stroke={stroke} strokeLinecap="round" strokeWidth="3.5" />
-          <path d="M18 2.8v3.6" stroke={stroke} strokeLinecap="round" strokeWidth="3.5" />
-          <circle cx="18" cy="1.8" fill={mono ? "currentColor" : "#72F3FF"} r="1.8" />
-          <rect x="8.5" y="14.5" width="19" height="15" rx="6.8" fill={mono ? "currentColor" : "#12151D"} opacity={mono ? 0.18 : 1} stroke={stroke} strokeWidth="2.8" />
-          <circle cx="14.3" cy="21.9" fill={mono ? "currentColor" : "#7A7FFF"} r="1.9" />
-          <circle cx="21.7" cy="21.9" fill={mono ? "currentColor" : "#55F7FF"} r="1.9" />
-          <path d="M16.3 26.4c.7.7 2.7.7 3.4 0" stroke={stroke} strokeLinecap="round" strokeWidth="2.5" />
-        </g>
-
-        {!compact ? (
-          <path
-            d="m40.2 10.5 7.9 10.6L56 10.5h-7.6l-4.1 5.6-4.1-5.6h0ZM40 22.7l8.1 9.3L56 43H47.8l-3.8-5.3-3.8 5.3H32l8-10.9Z"
-            fill={fill}
-          />
-        ) : null}
+        <path
+          d="M11.8 53c-1.8 0-3.3-1.2-3.8-3-.4-1.4-.1-2.8.7-4L28.6 13.5c1.5-2.5 3.4-3.9 5.6-3.9 2.3 0 4.2 1.4 5.7 4.1L58.6 46c.7 1.2 1 2.6.6 3.9-.5 1.8-2 3.1-3.8 3.1-1 0-2-.4-2.8-1l-7-3.3c-1.4-.7-2.4-1.7-3-3l-6.9-12.5c-.5-.9-1.2-1.4-2-1.4-.8 0-1.5.5-2 1.4l-3.1 5.8 4.3 7.7c.5 1 .4 2.2-.2 3.1-.7 1-1.8 1.6-3 1.6H11.8Z"
+          fill={fill}
+        />
+        <path
+          d="M24.3 41.1c4.7 0 8.6-3.4 9.7-8 1.1 4.6 5 8 9.7 8-4.7 0-8.6 3.4-9.7 8-1.1-4.6-5-8-9.7-8Z"
+          fill={mono ? "currentColor" : "#55D9FF"}
+          opacity={mono ? 0.8 : 1}
+        />
+        <rect x="43.2" y="35.8" width="2.8" height="2.8" rx="0.4" fill={mono ? "currentColor" : "#B8F4FF"} />
+        <rect x="46.9" y="39.5" width="2.8" height="2.8" rx="0.4" fill={mono ? "currentColor" : "#B8F4FF"} />
+        <rect x="43.2" y="43.2" width="2.8" height="2.8" rx="0.4" fill={mono ? "currentColor" : "#B8F4FF"} />
+        <circle cx="53.2" cy="49.7" r="1.4" fill={mono ? "currentColor" : "#B8F4FF"} />
+        <path d="M53.2 49.8 57 53.5" stroke={mono ? "currentColor" : "#B8F4FF"} strokeLinecap="round" strokeWidth="1.8" />
       </svg>
 
       {showWordmark ? (
         <span className="leading-none">
-          <span className="block text-sm font-black uppercase tracking-[0.26em] text-pearl/58">AAX</span>
+          <span className="block text-sm font-black uppercase tracking-[0.28em] text-pearl/58">AAX</span>
           <span className="block text-base font-black">{compact ? "AutoAgentX" : "AutoAgentX Studio"}</span>
         </span>
       ) : null}

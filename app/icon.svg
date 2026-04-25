@@ -1,20 +1,17 @@
 <svg width="512" height="512" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="aaxIconGradient" x1="8" y1="54" x2="56" y2="10" gradientUnits="userSpaceOnUse">
+    <linearGradient id="aaxIconGradient" x1="10" x2="56" y1="54" y2="12" gradientUnits="userSpaceOnUse">
       <stop stop-color="#A03BFF"/>
-      <stop offset="0.52" stop-color="#5A7BFF"/>
-      <stop offset="1" stop-color="#55F7FF"/>
+      <stop offset="0.55" stop-color="#5A7BFF"/>
+      <stop offset="1" stop-color="#21C8FF"/>
     </linearGradient>
   </defs>
   <rect width="64" height="64" rx="14" fill="#090C12"/>
-  <path d="M7 49 18.6 18.5c1.2-3.2 5.8-3.2 7 0L37.1 49h-6.8l-2.9-7.6H17l-2.9 7.6H7Zm12.2-13.2h6l-3-8-3 8Z" fill="url(#aaxIconGradient)"/>
-  <path d="M39 18.5h6.6l4.5 6 4.5-6H61l-7.5 10.4L61 49h-6.7l-4.2-5.7-4.2 5.7H39l7.6-20.1L39 18.5Z" fill="url(#aaxIconGradient)"/>
-  <circle cx="32" cy="28" r="13" stroke="url(#aaxIconGradient)" stroke-width="3"/>
-  <path d="M20 43.2 24.2 36.8" stroke="url(#aaxIconGradient)" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"/>
-  <path d="M32 10.2v3.1" stroke="url(#aaxIconGradient)" stroke-linecap="round" stroke-width="3"/>
-  <circle cx="32" cy="9" r="1.8" fill="#75F2FF"/>
-  <rect x="24" y="22.3" width="16" height="11.4" rx="5.5" fill="#111521" stroke="url(#aaxIconGradient)" stroke-width="2.4"/>
-  <circle cx="29.2" cy="28" r="1.6" fill="#7B7FFF"/>
-  <circle cx="34.8" cy="28" r="1.6" fill="#55F7FF"/>
-  <path d="M30.5 31.6c.8.7 2.2.7 3 0" stroke="url(#aaxIconGradient)" stroke-linecap="round" stroke-width="2"/>
+  <path d="M11.8 53c-1.8 0-3.3-1.2-3.8-3-.4-1.4-.1-2.8.7-4L28.6 13.5c1.5-2.5 3.4-3.9 5.6-3.9 2.3 0 4.2 1.4 5.7 4.1L58.6 46c.7 1.2 1 2.6.6 3.9-.5 1.8-2 3.1-3.8 3.1-1 0-2-.4-2.8-1l-7-3.3c-1.4-.7-2.4-1.7-3-3l-6.9-12.5c-.5-.9-1.2-1.4-2-1.4-.8 0-1.5.5-2 1.4l-3.1 5.8 4.3 7.7c.5 1 .4 2.2-.2 3.1-.7 1-1.8 1.6-3 1.6H11.8Z" fill="url(#aaxIconGradient)"/>
+  <path d="M24.3 41.1c4.7 0 8.6-3.4 9.7-8 1.1 4.6 5 8 9.7 8-4.7 0-8.6 3.4-9.7 8-1.1-4.6-5-8-9.7-8Z" fill="#55D9FF"/>
+  <rect x="43.2" y="35.8" width="2.8" height="2.8" rx="0.4" fill="#B8F4FF"/>
+  <rect x="46.9" y="39.5" width="2.8" height="2.8" rx="0.4" fill="#B8F4FF"/>
+  <rect x="43.2" y="43.2" width="2.8" height="2.8" rx="0.4" fill="#B8F4FF"/>
+  <circle cx="53.2" cy="49.7" r="1.4" fill="#B8F4FF"/>
+  <path d="M53.2 49.8 57 53.5" stroke="#B8F4FF" stroke-linecap="round" stroke-width="1.8"/>
 </svg>
