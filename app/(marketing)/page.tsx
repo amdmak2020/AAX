@@ -1,14 +1,41 @@
 import { CheckCircle2, CircleX, MessageSquareMore } from "lucide-react";
+import Script from "next/script";
 import { CtaBlock } from "@/components/public/cta-block";
 import { PricingCard } from "@/components/public/pricing-card";
 import { SectionWrapper } from "@/components/public/section-wrapper";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { brand } from "@/lib/app-config";
 import { faqs, plans } from "@/lib/product";
 
 export default function HomePage() {
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: brand.name,
+    applicationCategory: "MultimediaApplication",
+    operatingSystem: "Web",
+    url: brand.url,
+    description:
+      "AutoAgentX is an AI video editor for creators who want stronger hooks, cleaner subtitles, and higher-retention short-form videos.",
+    offers: {
+      "@type": "AggregateOffer",
+      lowPrice: "0",
+      highPrice: "199",
+      priceCurrency: "USD"
+    },
+    creator: {
+      "@type": "Organization",
+      name: brand.name,
+      url: brand.url
+    }
+  };
+
   return (
     <main>
+      <Script id="aax-softwareapp-schema" type="application/ld+json">
+        {JSON.stringify(structuredData)}
+      </Script>
       <section className="border-b border-pearl/10">
         <div className="mx-auto max-w-6xl px-5 py-16 md:py-20">
           <div className="mx-auto max-w-3xl text-center">

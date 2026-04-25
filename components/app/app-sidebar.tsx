@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BarChart3, CreditCard, FolderOpen, Home, LogOut, PlusCircle, Settings, Shield } from "lucide-react";
-import { brand } from "@/lib/app-config";
+import { AaxLogo } from "@/components/brand/aax-logo";
 import { Button } from "@/components/ui/button";
 import { formatCredits } from "@/lib/utils";
 
@@ -24,9 +24,8 @@ export function AppSidebar({
 }) {
   return (
     <aside className="border-pearl/10 bg-[#0f1216] p-4 md:min-h-screen md:w-64 md:border-r">
-      <Link className="mb-8 flex items-center gap-3 font-black" href="/app">
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-mint text-ink">RB</span>
-        <span>{brand.shortName}</span>
+      <Link className="mb-8 block font-black" href="/app">
+        <AaxLogo compact className="text-pearl" />
       </Link>
       <nav className="grid gap-2">
         {items.map((item) => {

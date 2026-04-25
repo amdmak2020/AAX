@@ -1,7 +1,8 @@
 export const brand = {
-  name: "Hook + Subtitle + Retention Booster",
-  shortName: "Retention Booster",
-  supportEmail: "support@retentionbooster.example"
+  name: "AutoAgentX",
+  shortName: "AAX",
+  supportEmail: "support@autoagentx.com",
+  url: "https://www.autoagentx.com"
 };
 
 export const boostPresets = [

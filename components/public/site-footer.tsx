@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { AaxLogo } from "@/components/brand/aax-logo";
+import { brand } from "@/lib/app-config";
 
 const links = [
   { label: "Pricing", href: "/pricing" },
@@ -13,10 +15,11 @@ export function SiteFooter() {
     <footer className="border-t border-pearl/10 bg-coal">
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-10 md:flex-row md:items-center md:justify-between">
         <div>
-          <div className="font-black">Retention Booster</div>
+          <AaxLogo compact className="text-pearl" />
           <p className="mt-2 max-w-md text-sm text-pearl/58">
-            Upload a clip and get back a more engaging short-form version without the manual editing grind.
+            AI video editing for creators who want stronger hooks, cleaner subtitles, and more watchable shorts without the manual editing grind.
           </p>
+          <p className="mt-2 text-xs text-pearl/40">{brand.supportEmail}</p>
         </div>
         <div className="flex flex-wrap gap-4 text-sm text-pearl/64">
           {links.map((link) => (

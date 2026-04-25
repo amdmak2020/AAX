@@ -1,0 +1,20 @@
+<svg width="512" height="512" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="aaxIconGradient" x1="8" y1="54" x2="56" y2="10" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A03BFF"/>
+      <stop offset="0.52" stop-color="#5A7BFF"/>
+      <stop offset="1" stop-color="#55F7FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#090C12"/>
+  <path d="M7 49 18.6 18.5c1.2-3.2 5.8-3.2 7 0L37.1 49h-6.8l-2.9-7.6H17l-2.9 7.6H7Zm12.2-13.2h6l-3-8-3 8Z" fill="url(#aaxIconGradient)"/>
+  <path d="M39 18.5h6.6l4.5 6 4.5-6H61l-7.5 10.4L61 49h-6.7l-4.2-5.7-4.2 5.7H39l7.6-20.1L39 18.5Z" fill="url(#aaxIconGradient)"/>
+  <circle cx="32" cy="28" r="13" stroke="url(#aaxIconGradient)" stroke-width="3"/>
+  <path d="M20 43.2 24.2 36.8" stroke="url(#aaxIconGradient)" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"/>
+  <path d="M32 10.2v3.1" stroke="url(#aaxIconGradient)" stroke-linecap="round" stroke-width="3"/>
+  <circle cx="32" cy="9" r="1.8" fill="#75F2FF"/>
+  <rect x="24" y="22.3" width="16" height="11.4" rx="5.5" fill="#111521" stroke="url(#aaxIconGradient)" stroke-width="2.4"/>
+  <circle cx="29.2" cy="28" r="1.6" fill="#7B7FFF"/>
+  <circle cx="34.8" cy="28" r="1.6" fill="#55F7FF"/>
+  <path d="M30.5 31.6c.8.7 2.2.7 3 0" stroke="url(#aaxIconGradient)" stroke-linecap="round" stroke-width="2"/>
+</svg>

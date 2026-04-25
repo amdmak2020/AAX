@@ -7,7 +7,7 @@ import {
   Upload,
   Wand2
 } from "lucide-react";
-import { brand, planCatalog } from "@/lib/app-config";
+import { planCatalog } from "@/lib/app-config";
 
 export const navItems = [
   { label: "Chat Editing", href: "/#chat-editing" },
@@ -115,7 +115,7 @@ export const plans = Object.values(planCatalog).map((plan) => ({
 }));
 
 export const marketingCopy = {
-  title: `${brand.name} | Upload a clip. Get a more engaging version back.`,
+  title: `AutoAgentX | AI video editor for hooks, subtitles, and short-form retention`,
   description:
-    "Improve hooks, subtitles, and watchability automatically. Upload a clip and get a more engaging short-form version back."
+    "AutoAgentX helps creators turn boring clips into high-retention shorts with stronger hooks, cleaner subtitles, and faster short-form editing."
 };
