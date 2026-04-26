@@ -100,37 +100,25 @@ export async function updateSubscriptionPlan(params: {
     current_period_end: params.currentPeriodEnd,
     updated_at: new Date().toISOString()
   };
+  const attempts = [
+    { ...fullPayload, plan_key: params.planKey },
+    { ...basePayload, plan_key: params.planKey },
+    { ...fullPayload, plan: params.planKey },
+    { ...basePayload, plan: params.planKey }
+  ];
 
-  const primary = await admin
-    .from("subscriptions")
-    .update({
-      ...fullPayload,
-      plan_key: params.planKey
-    })
-    .eq("user_id", params.userId);
+  let lastError: string | null = null;
 
-  if (!primary.error) {
-    return;
+  for (const payload of attempts) {
+    const result = await admin.from("subscriptions").update(payload).eq("user_id", params.userId);
+    if (!result.error) {
+      return;
+    }
+
+    lastError = result.error.message;
   }
 
-  const missingPlanKey = primary.error.message.includes("plan_key");
-  const missingCancelAtPeriodEnd = primary.error.message.includes("cancel_at_period_end");
-
-  if (!missingPlanKey && !missingCancelAtPeriodEnd) {
-    throw new Error(primary.error.message);
-  }
-
-  const fallback = await admin
-    .from("subscriptions")
-    .update({
-      ...basePayload,
-      ...(missingPlanKey ? { plan: params.planKey } : { plan_key: params.planKey })
-    })
-    .eq("user_id", params.userId);
-
-  if (fallback.error) {
-    throw new Error(fallback.error.message);
-  }
+  throw new Error(lastError ?? "Could not update subscription plan.");
 }
 
 export async function ensureAccountRecords(user: User) {
