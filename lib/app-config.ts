@@ -57,32 +57,32 @@ export const planCatalog = {
   creator: {
     key: "creator",
     name: "Creator",
-    monthlyCredits: 40,
+    monthlyCredits: 50,
     maxFileSizeMb: 500,
     featured: true,
-    priceMonthly: 24,
+    priceMonthly: 17.99,
     tagline: "For creators improving clips every week.",
-    features: ["40 boosts / month", "Standard queue", "Bigger uploads"]
+    features: ["50 boosts / month", "Standard queue", "Bigger uploads"]
   },
   pro: {
     key: "pro",
     name: "Pro",
-    monthlyCredits: 150,
+    monthlyCredits: 100,
     maxFileSizeMb: 1024,
     featured: false,
-    priceMonthly: 79,
+    priceMonthly: 27.99,
     tagline: "For serious short-form volume and faster turnaround.",
-    features: ["150 boosts / month", "Priority label", "Large file limit"]
+    features: ["100 boosts / month", "Priority label", "Large file limit"]
   },
   business: {
     key: "business",
     name: "Business",
-    monthlyCredits: 500,
+    monthlyCredits: 1000,
     maxFileSizeMb: 2048,
     featured: false,
-    priceMonthly: 199,
+    priceMonthly: 199.99,
     tagline: "For operators and teams processing many clips.",
-    features: ["500 boosts / month", "Priority label", "Best limits"]
+    features: ["1000 boosts / month", "Priority label", "Best limits"]
   }
 } as const;
 

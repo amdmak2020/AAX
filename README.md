@@ -206,9 +206,9 @@ where email = 'you@example.com';
 ## Credits model
 
 - Free: 2 boosts
-- Creator: 40 boosts / month
-- Pro: 150 boosts / month
-- Business: 500 boosts / month
+- Creator: 50 boosts / month
+- Pro: 100 boosts / month
+- Business: 1000 boosts / month
 
 Each submitted boost debits 1 credit and writes to `usage_ledger`.
 

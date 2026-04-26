@@ -34,8 +34,8 @@ export function normalizeSubscriptionRow(userId: string, row: Record<string, unk
   const plan = planCatalog[planKey];
   const rawCreditsTotal = typeof row.credits_total === "number" ? row.credits_total : null;
   const rawCreditsUsed = typeof row.credits_used === "number" ? row.credits_used : null;
-  const creditsTotal = rawCreditsTotal && rawCreditsTotal > 0 ? rawCreditsTotal : plan.monthlyCredits;
-  const creditsUsed = rawCreditsUsed && rawCreditsUsed >= 0 ? rawCreditsUsed : 0;
+  const creditsTotal = Math.max(rawCreditsTotal && rawCreditsTotal > 0 ? rawCreditsTotal : 0, plan.monthlyCredits);
+  const creditsUsed = Math.min(rawCreditsUsed && rawCreditsUsed >= 0 ? rawCreditsUsed : 0, creditsTotal);
 
   return {
     id: typeof row.id === "string" ? row.id : null,
