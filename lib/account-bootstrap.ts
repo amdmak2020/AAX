@@ -81,7 +81,7 @@ export async function updateSubscriptionPlan(params: {
   cancelAtPeriodEnd?: boolean;
 }) {
   const admin = createSupabaseAdminClient();
-  const basePayload = {
+  const fullPayload = {
     stripe_customer_id: params.customerId,
     stripe_subscription_id: params.subscriptionId,
     status: params.status,
@@ -91,11 +91,20 @@ export async function updateSubscriptionPlan(params: {
     cancel_at_period_end: params.cancelAtPeriodEnd ?? false,
     updated_at: new Date().toISOString()
   };
+  const basePayload = {
+    stripe_customer_id: params.customerId,
+    stripe_subscription_id: params.subscriptionId,
+    status: params.status,
+    credits_total: params.creditsTotal,
+    credits_used: params.creditsUsed ?? 0,
+    current_period_end: params.currentPeriodEnd,
+    updated_at: new Date().toISOString()
+  };
 
   const primary = await admin
     .from("subscriptions")
     .update({
-      ...basePayload,
+      ...fullPayload,
       plan_key: params.planKey
     })
     .eq("user_id", params.userId);
@@ -104,7 +113,10 @@ export async function updateSubscriptionPlan(params: {
     return;
   }
 
-  if (!primary.error.message.includes("plan_key")) {
+  const missingPlanKey = primary.error.message.includes("plan_key");
+  const missingCancelAtPeriodEnd = primary.error.message.includes("cancel_at_period_end");
+
+  if (!missingPlanKey && !missingCancelAtPeriodEnd) {
     throw new Error(primary.error.message);
   }
 
@@ -112,7 +124,7 @@ export async function updateSubscriptionPlan(params: {
     .from("subscriptions")
     .update({
       ...basePayload,
-      plan: params.planKey
+      ...(missingPlanKey ? { plan: params.planKey } : { plan_key: params.planKey })
     })
     .eq("user_id", params.userId);
 

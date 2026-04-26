@@ -14,6 +14,7 @@ type LemonSqueezyWebhookPayload = {
   };
   data?: {
     id?: string;
+    type?: string;
     attributes?: {
       customer_id?: string | number;
       variant_id?: string | number;
@@ -61,8 +62,14 @@ export async function POST(request: Request) {
 
   const payload = JSON.parse(payloadText) as LemonSqueezyWebhookPayload;
   const eventName = payload.meta?.event_name;
+  const dataType = payload.data?.type ?? null;
   const subscriptionId = payload.data?.id ?? null;
   const attributes = payload.data?.attributes;
+
+  if (dataType === "subscription-invoices") {
+    return NextResponse.json({ received: true, skipped: true });
+  }
+
   const customerId = attributes?.customer_id ? String(attributes.customer_id) : null;
   const planKey = mapVariantToPlanKey(attributes?.variant_id);
   const status = normalizeStatus(eventName, attributes?.status);
