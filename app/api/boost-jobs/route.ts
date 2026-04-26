@@ -5,6 +5,7 @@ import { planCatalog, sourceUploadMaxMb, type PlanKey } from "@/lib/app-config";
 import { ensureAccountRecords, updateSubscriptionUsage } from "@/lib/account-bootstrap";
 import { bypassUsageLimits, getAppUrl } from "@/lib/env";
 import { getProcessorProvider } from "@/lib/processor/provider";
+import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { uploadSourceVideo } from "@/lib/storage/supabase-storage";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -124,6 +125,26 @@ export async function POST(request: Request) {
       return NextResponse.redirect(new URL("/login?next=/app/create", request.url), { status: 303 });
     }
 
+    const limiter = enforceRateLimit({
+      request,
+      bucket: "boost-jobs:create",
+      key: user.id,
+      limit: 12,
+      windowMs: 15 * 60 * 1000
+    });
+
+    if (!limiter.allowed) {
+      return applyRateLimitHeaders(
+        respondWithCreateError(
+          request,
+          "rate_limited",
+          "You have submitted a lot of boost jobs in a short window. Give it a minute and try again.",
+          429
+        ),
+        { limit: 12, remaining: limiter.remaining, resetAt: limiter.resetAt, retryAfterSeconds: limiter.retryAfterSeconds }
+      );
+    }
+
     const admin = createSupabaseAdminClient();
     const subscription = (await ensureAccountRecords(user)) as {
       id: string | null;
@@ -135,13 +156,19 @@ export async function POST(request: Request) {
     const usageBypassed = bypassUsageLimits();
 
     if (!usageBypassed && subscription.credits_used >= subscription.credits_total) {
-      return respondWithCreateError(request, "no_credits", "No boosts remaining on the current plan.", 402);
+      return applyRateLimitHeaders(
+        respondWithCreateError(request, "no_credits", "No boosts remaining on the current plan.", 402),
+        { limit: 12, remaining: limiter.remaining, resetAt: limiter.resetAt }
+      );
     }
 
     const uploadLimitMb = Math.min(plan.maxFileSizeMb, sourceUploadMaxMb);
 
     if (useFileSource && file.size > uploadLimitMb * 1024 * 1024) {
-      return respondWithCreateError(request, "file_too_large", `Uploads are currently limited to ${uploadLimitMb}MB.`, 400);
+      return applyRateLimitHeaders(
+        respondWithCreateError(request, "file_too_large", `Uploads are currently limited to ${uploadLimitMb}MB.`, 400),
+        { limit: 12, remaining: limiter.remaining, resetAt: limiter.resetAt }
+      );
     }
 
     const jobId = randomUUID();
@@ -168,7 +195,11 @@ export async function POST(request: Request) {
     });
 
     if (insert.error) {
-      return respondWithCreateError(request, "generic", insert.error.message, 500);
+      return applyRateLimitHeaders(respondWithCreateError(request, "generic", insert.error.message, 500), {
+        limit: 12,
+        remaining: limiter.remaining,
+        resetAt: limiter.resetAt
+      });
     }
 
     try {
@@ -179,7 +210,11 @@ export async function POST(request: Request) {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not update credit usage.";
-      return respondWithCreateError(request, "usage_update_failed", message, 500);
+      return applyRateLimitHeaders(respondWithCreateError(request, "usage_update_failed", message, 500), {
+        limit: 12,
+        remaining: limiter.remaining,
+        resetAt: limiter.resetAt
+      });
     }
 
     const usageLedgerInsert = await admin.from("usage_ledger").insert({
@@ -190,7 +225,11 @@ export async function POST(request: Request) {
     });
 
     if (usageLedgerInsert.error) {
-      return respondWithCreateError(request, "usage_update_failed", usageLedgerInsert.error.message, 500);
+      return applyRateLimitHeaders(respondWithCreateError(request, "usage_update_failed", usageLedgerInsert.error.message, 500), {
+        limit: 12,
+        remaining: limiter.remaining,
+        resetAt: limiter.resetAt
+      });
     }
 
     const provider = getProcessorProvider();
@@ -224,7 +263,11 @@ export async function POST(request: Request) {
       })
       .eq("id", jobId);
 
-    return NextResponse.redirect(new URL(`/app/jobs/${jobId}`, request.url), { status: 303 });
+    return applyRateLimitHeaders(NextResponse.redirect(new URL(`/app/jobs/${jobId}`, request.url), { status: 303 }), {
+      limit: 12,
+      remaining: limiter.remaining,
+      resetAt: limiter.resetAt
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Boost job creation failed.";
     return respondWithCreateError(request, "generic", message, 500);

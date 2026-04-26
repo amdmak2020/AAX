@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAdmin } from "@/lib/authz";
+import { getCurrentProfileOptional } from "@/lib/authz";
+import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const schema = z.object({
@@ -11,12 +12,41 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
-  await requireAdmin();
+  const profile = await getCurrentProfileOptional();
+  if (!profile) {
+    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  }
+
+  if (profile.role !== "admin") {
+    return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+  }
+
+  const limiter = enforceRateLimit({
+    request,
+    bucket: "admin:job-status",
+    key: profile.id,
+    limit: 60,
+    windowMs: 5 * 60 * 1000
+  });
+
+  if (!limiter.allowed) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "Too many admin status updates. Try again shortly." }, { status: 429 }), {
+      limit: 60,
+      remaining: limiter.remaining,
+      resetAt: limiter.resetAt,
+      retryAfterSeconds: limiter.retryAfterSeconds
+    });
+  }
+
   const payload = await request.json().catch(() => null);
   const parsed = schema.safeParse(payload);
 
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid admin status payload." }, { status: 400 });
+    return applyRateLimitHeaders(NextResponse.json({ error: "Invalid admin status payload." }, { status: 400 }), {
+      limit: 60,
+      remaining: limiter.remaining,
+      resetAt: limiter.resetAt
+    });
   }
 
   const admin = createSupabaseAdminClient();
@@ -32,8 +62,16 @@ export async function POST(request: Request) {
     .eq("id", parsed.data.jobId);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return applyRateLimitHeaders(NextResponse.json({ error: error.message }, { status: 500 }), {
+      limit: 60,
+      remaining: limiter.remaining,
+      resetAt: limiter.resetAt
+    });
   }
 
-  return NextResponse.json({ ok: true });
+  return applyRateLimitHeaders(NextResponse.json({ ok: true }), {
+    limit: 60,
+    remaining: limiter.remaining,
+    resetAt: limiter.resetAt
+  });
 }

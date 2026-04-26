@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const allowedHosts = new Set([
   "drive.google.com",
@@ -13,22 +15,60 @@ function isAllowedUrl(url: URL) {
 }
 
 export async function GET(request: Request) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  }
+
+  const limiter = enforceRateLimit({
+    request,
+    bucket: "video:proxy",
+    key: user.id,
+    limit: 120,
+    windowMs: 10 * 60 * 1000
+  });
+
+  if (!limiter.allowed) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "Too many video preview requests. Try again shortly." }, { status: 429 }), {
+      limit: 120,
+      remaining: limiter.remaining,
+      resetAt: limiter.resetAt,
+      retryAfterSeconds: limiter.retryAfterSeconds
+    });
+  }
+
   const requestUrl = new URL(request.url);
   const rawUrl = requestUrl.searchParams.get("url");
 
   if (!rawUrl) {
-    return NextResponse.json({ error: "Missing video URL." }, { status: 400 });
+    return applyRateLimitHeaders(NextResponse.json({ error: "Missing video URL." }, { status: 400 }), {
+      limit: 120,
+      remaining: limiter.remaining,
+      resetAt: limiter.resetAt
+    });
   }
 
   let targetUrl: URL;
   try {
     targetUrl = new URL(rawUrl);
   } catch {
-    return NextResponse.json({ error: "Invalid video URL." }, { status: 400 });
+    return applyRateLimitHeaders(NextResponse.json({ error: "Invalid video URL." }, { status: 400 }), {
+      limit: 120,
+      remaining: limiter.remaining,
+      resetAt: limiter.resetAt
+    });
   }
 
   if (!isAllowedUrl(targetUrl)) {
-    return NextResponse.json({ error: "Video host is not allowed." }, { status: 400 });
+    return applyRateLimitHeaders(NextResponse.json({ error: "Video host is not allowed." }, { status: 400 }), {
+      limit: 120,
+      remaining: limiter.remaining,
+      resetAt: limiter.resetAt
+    });
   }
 
   const range = request.headers.get("range");
@@ -42,9 +82,9 @@ export async function GET(request: Request) {
   });
 
   if (!upstream.ok && upstream.status !== 206) {
-    return NextResponse.json(
-      { error: `Could not load video. Upstream responded with ${upstream.status}.` },
-      { status: upstream.status }
+    return applyRateLimitHeaders(
+      NextResponse.json({ error: `Could not load video. Upstream responded with ${upstream.status}.` }, { status: upstream.status }),
+      { limit: 120, remaining: limiter.remaining, resetAt: limiter.resetAt }
     );
   }
 
@@ -61,8 +101,12 @@ export async function GET(request: Request) {
   if (contentLength) headers.set("content-length", contentLength);
   if (contentRange) headers.set("content-range", contentRange);
 
-  return new Response(upstream.body, {
+  return applyRateLimitHeaders(new Response(upstream.body, {
     status: upstream.status,
     headers
+  }) as NextResponse, {
+    limit: 120,
+    remaining: limiter.remaining,
+    resetAt: limiter.resetAt
   });
 }

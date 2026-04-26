@@ -1,11 +1,27 @@
 import { NextResponse } from "next/server";
 import { getAppUrl } from "@/lib/env";
+import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { getSafeRedirectPath } from "@/lib/security";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
   const next = getSafeRedirectPath(formData.get("next")?.toString(), "/app");
+  const limiter = enforceRateLimit({
+    request,
+    bucket: "auth:google",
+    limit: 12,
+    windowMs: 10 * 60 * 1000
+  });
+
+  if (!limiter.allowed) {
+    return applyRateLimitHeaders(
+      NextResponse.redirect(new URL(`/login?error=${encodeURIComponent("Too many sign-in attempts. Please try again shortly.")}`, request.url), {
+        status: 303
+      }),
+      { limit: 12, remaining: limiter.remaining, resetAt: limiter.resetAt, retryAfterSeconds: limiter.retryAfterSeconds }
+    );
+  }
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
@@ -20,8 +36,16 @@ export async function POST(request: Request) {
   });
 
   if (error || !data.url) {
-    return NextResponse.json({ error: error?.message ?? "Could not start Google sign in." }, { status: 400 });
+    return applyRateLimitHeaders(NextResponse.json({ error: error?.message ?? "Could not start Google sign in." }, { status: 400 }), {
+      limit: 12,
+      remaining: limiter.remaining,
+      resetAt: limiter.resetAt
+    });
   }
 
-  return NextResponse.redirect(data.url, { status: 303 });
+  return applyRateLimitHeaders(NextResponse.redirect(data.url, { status: 303 }), {
+    limit: 12,
+    remaining: limiter.remaining,
+    resetAt: limiter.resetAt
+  });
 }

@@ -29,6 +29,23 @@ export async function getCurrentProfile() {
   };
 }
 
+export async function getCurrentProfileOptional() {
+  const user = await getCurrentUser();
+  if (!user) {
+    return null;
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase.from("profiles").select("id,email,full_name,role").eq("id", user.id).maybeSingle();
+
+  return {
+    id: user.id,
+    email: user.email ?? "",
+    full_name: data?.full_name ?? user.user_metadata.full_name ?? "",
+    role: data?.role ?? "user"
+  };
+}
+
 export async function requireAdmin() {
   const profile = await getCurrentProfile();
   if (profile.role !== "admin") {
