@@ -1,31 +1,50 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { planCatalog, type PlanKey } from "@/lib/app-config";
 import { updateSubscriptionPlan } from "@/lib/account-bootstrap";
 import { getLemonSqueezyVariantId, getLemonSqueezyWebhookSecret } from "@/lib/env";
 import { verifyLemonSqueezySignature } from "@/lib/lemonsqueezy";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { requestExceedsBytes, strictUuidSchema } from "@/lib/validation";
 
-type LemonSqueezyWebhookPayload = {
-  meta?: {
-    event_name?: string;
-    custom_data?: {
-      user_id?: string;
-    };
-  };
-  data?: {
-    id?: string;
-    type?: string;
-    attributes?: {
-      customer_id?: string | number;
-      variant_id?: string | number;
-      status?: string;
-      renews_at?: string | null;
-      ends_at?: string | null;
-      cancelled?: boolean;
-      user_email?: string | null;
-    };
-  };
-};
+const maxLemonWebhookBytes = 256 * 1024;
+const stringOrNumberSchema = z.union([z.string(), z.number()]);
+const lemonWebhookSchema = z
+  .object({
+    meta: z
+      .object({
+        event_name: z.string().trim().max(80).optional(),
+        custom_data: z
+          .object({
+            user_id: strictUuidSchema.optional(),
+            plan_name: z.string().trim().max(80).optional()
+          })
+          .passthrough()
+          .optional()
+      })
+      .passthrough()
+      .optional(),
+    data: z
+      .object({
+        id: stringOrNumberSchema.optional(),
+        type: z.string().trim().max(80).optional(),
+        attributes: z
+          .object({
+            customer_id: stringOrNumberSchema.optional(),
+            variant_id: stringOrNumberSchema.optional(),
+            status: z.string().trim().max(80).optional(),
+            renews_at: z.string().trim().max(80).nullable().optional(),
+            ends_at: z.string().trim().max(80).nullable().optional(),
+            cancelled: z.boolean().optional(),
+            user_email: z.string().email().max(320).nullable().optional()
+          })
+          .passthrough()
+          .optional()
+      })
+      .passthrough()
+      .optional()
+  })
+  .passthrough();
 
 function mapVariantToPlanKey(variantId: string | number | null | undefined): PlanKey {
   const normalized = variantId ? String(variantId) : null;
@@ -51,6 +70,10 @@ function normalizeStatus(eventName: string | undefined, status: string | null | 
 
 export async function POST(request: Request) {
   try {
+    if (requestExceedsBytes(request, maxLemonWebhookBytes)) {
+      return NextResponse.json({ error: "Webhook payload is too large." }, { status: 413 });
+    }
+
     const secret = getLemonSqueezyWebhookSecret();
     if (!secret) {
       return NextResponse.json({ error: "Missing LEMONSQUEEZY_WEBHOOK_SECRET" }, { status: 500 });
@@ -63,10 +86,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid webhook signature." }, { status: 400 });
     }
 
-    const payload = JSON.parse(payloadText) as LemonSqueezyWebhookPayload;
+    const rawPayload = JSON.parse(payloadText) as unknown;
+    const parsed = lemonWebhookSchema.safeParse(rawPayload);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid Lemon Squeezy webhook payload." }, { status: 400 });
+    }
+
+    const payload = parsed.data;
     const eventName = payload.meta?.event_name;
     const dataType = payload.data?.type ?? null;
-    const subscriptionId = payload.data?.id ?? null;
+    const subscriptionId = payload.data?.id ? String(payload.data.id) : null;
     const attributes = payload.data?.attributes;
 
     if (dataType === "subscription-invoices") {

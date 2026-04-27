@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 const { canAccessUserResource, hasRole, isEmailVerified, isRecentlyAuthenticated, normalizeRole } = await import(
   new URL("../lib/access-control.ts", import.meta.url).href
 );
+const { normalizeHttpUrl, sanitizeMultilineText, sanitizeSingleLineText } = await import(new URL("../lib/validation.ts", import.meta.url).href);
 
 assert.equal(normalizeRole("user"), "owner", "legacy user role should normalize to owner");
 assert.equal(hasRole("admin", "member"), true, "admin should satisfy member access");
@@ -41,5 +42,16 @@ const fresh = new Date(Date.now() - 30 * 60 * 1000).toISOString();
 
 assert.equal(isRecentlyAuthenticated({ last_sign_in_at: stale }), false, "stale sessions should fail elevated checks");
 assert.equal(isRecentlyAuthenticated({ last_sign_in_at: fresh }), true, "fresh sessions should pass elevated checks");
+assert.equal(sanitizeSingleLineText("  hello\u0000   world  "), "hello world", "single-line sanitization should remove control chars");
+assert.equal(
+  sanitizeMultilineText("line 1\r\n\r\n\r\nline\u0007 2"),
+  "line 1\n\nline  2",
+  "multiline sanitization should normalize line endings and strip control chars"
+);
+assert.equal(
+  normalizeHttpUrl("https://example.com/path?q=1#fragment"),
+  "https://example.com/path?q=1",
+  "URL normalization should strip fragments"
+);
 
 console.log("Security access-control checks passed.");

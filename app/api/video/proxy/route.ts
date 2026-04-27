@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { normalizeHttpUrl } from "@/lib/validation";
 
 const allowedHosts = new Set([
   "drive.google.com",
@@ -9,9 +11,22 @@ const allowedHosts = new Set([
   "storage.googleapis.com",
   "ptlpjrkyuztofbsfefzk.supabase.co"
 ]);
+const maxPreviewVideoBytes = 250 * 1024 * 1024;
+const proxyQuerySchema = z
+  .object({
+    url: z.string().trim().min(1).max(2048).transform((value, ctx) => {
+      try {
+        return normalizeHttpUrl(value);
+      } catch {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid video URL." });
+        return z.NEVER;
+      }
+    })
+  })
+  .strict();
 
 function isAllowedUrl(url: URL) {
-  return url.protocol === "https:" && allowedHosts.has(url.hostname);
+  return url.protocol === "https:" && !url.port && allowedHosts.has(url.hostname);
 }
 
 export async function GET(request: Request) {
@@ -43,9 +58,11 @@ export async function GET(request: Request) {
   }
 
   const requestUrl = new URL(request.url);
-  const rawUrl = requestUrl.searchParams.get("url");
+  const parsedQuery = proxyQuerySchema.safeParse({
+    url: requestUrl.searchParams.get("url")
+  });
 
-  if (!rawUrl) {
+  if (!parsedQuery.success) {
     return applyRateLimitHeaders(NextResponse.json({ error: "Missing video URL." }, { status: 400 }), {
       limit: 120,
       remaining: limiter.remaining,
@@ -56,7 +73,7 @@ export async function GET(request: Request) {
 
   let targetUrl: URL;
   try {
-    targetUrl = new URL(rawUrl);
+    targetUrl = new URL(parsedQuery.data.url);
   } catch {
     return applyRateLimitHeaders(NextResponse.json({ error: "Invalid video URL." }, { status: 400 }), {
       limit: 120,
@@ -97,6 +114,16 @@ export async function GET(request: Request) {
   const contentLength = upstream.headers.get("content-length");
   const contentRange = upstream.headers.get("content-range");
   const acceptRanges = upstream.headers.get("accept-ranges") ?? "bytes";
+  const upstreamBytes = contentLength ? Number(contentLength) : null;
+
+  if (upstreamBytes && Number.isFinite(upstreamBytes) && upstreamBytes > maxPreviewVideoBytes) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "The preview video is too large to stream safely." }, { status: 413 }), {
+      limit: 120,
+      remaining: limiter.remaining,
+      resetAt: limiter.resetAt,
+      store: limiter.store
+    });
+  }
 
   headers.set("content-type", contentType.includes("text/html") ? "video/mp4" : contentType);
   headers.set("accept-ranges", acceptRanges);

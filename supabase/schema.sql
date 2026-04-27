@@ -185,3 +185,104 @@ for each row execute procedure public.handle_new_user();
 create index boost_jobs_user_created_idx on public.boost_jobs(user_id, created_at desc);
 create index boost_jobs_status_idx on public.boost_jobs(status);
 create index usage_ledger_user_created_idx on public.usage_ledger(user_id, created_at desc);
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public' and table_name = 'video_jobs'
+  ) then
+    create index if not exists video_jobs_user_created_idx on public.video_jobs(user_id, created_at desc);
+    create index if not exists video_jobs_status_idx on public.video_jobs(status);
+    create index if not exists video_jobs_execution_idx on public.video_jobs(n8n_execution_id);
+
+    if not exists (select 1 from pg_constraint where conname = 'video_jobs_progress_range') then
+      alter table public.video_jobs
+      add constraint video_jobs_progress_range
+      check (progress is null or (progress >= 0 and progress <= 100));
+    end if;
+
+    if not exists (select 1 from pg_constraint where conname = 'video_jobs_credits_reserved_nonnegative') then
+      alter table public.video_jobs
+      add constraint video_jobs_credits_reserved_nonnegative
+      check (credits_reserved is null or credits_reserved >= 0);
+    end if;
+
+    if not exists (select 1 from pg_constraint where conname = 'video_jobs_title_length') then
+      alter table public.video_jobs
+      add constraint video_jobs_title_length
+      check (title is null or char_length(title) <= 120);
+    end if;
+
+    if not exists (select 1 from pg_constraint where conname = 'video_jobs_error_message_length') then
+      alter table public.video_jobs
+      add constraint video_jobs_error_message_length
+      check (error_message is null or char_length(error_message) <= 2000);
+    end if;
+
+    if not exists (select 1 from pg_constraint where conname = 'video_jobs_output_asset_path_length') then
+      alter table public.video_jobs
+      add constraint video_jobs_output_asset_path_length
+      check (output_asset_path is null or char_length(output_asset_path) <= 2048);
+    end if;
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public' and table_name = 'subscriptions'
+  ) then
+    create index if not exists subscriptions_user_idx on public.subscriptions(user_id);
+    create index if not exists subscriptions_customer_idx on public.subscriptions(stripe_customer_id);
+    create index if not exists subscriptions_subscription_idx on public.subscriptions(stripe_subscription_id);
+    create index if not exists subscriptions_status_idx on public.subscriptions(status);
+
+    if not exists (select 1 from pg_constraint where conname = 'subscriptions_credits_total_nonnegative') then
+      alter table public.subscriptions
+      add constraint subscriptions_credits_total_nonnegative
+      check (credits_total >= 0);
+    end if;
+
+    if not exists (select 1 from pg_constraint where conname = 'subscriptions_credits_used_range') then
+      alter table public.subscriptions
+      add constraint subscriptions_credits_used_range
+      check (credits_used >= 0 and credits_used <= credits_total);
+    end if;
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public' and table_name = 'profiles'
+  ) then
+    create index if not exists profiles_role_idx on public.profiles(role);
+
+    if not exists (select 1 from pg_constraint where conname = 'profiles_email_length') then
+      alter table public.profiles
+      add constraint profiles_email_length
+      check (char_length(email) between 3 and 320);
+    end if;
+
+    if not exists (select 1 from pg_constraint where conname = 'profiles_full_name_length') then
+      alter table public.profiles
+      add constraint profiles_full_name_length
+      check (full_name is null or char_length(full_name) <= 120);
+    end if;
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public' and table_name = 'usage_ledger'
+  ) then
+    create index if not exists usage_ledger_job_idx on public.usage_ledger(job_id);
+
+    if not exists (select 1 from pg_constraint where conname = 'usage_ledger_reason_length') then
+      alter table public.usage_ledger
+      add constraint usage_ledger_reason_length
+      check (char_length(reason) <= 120);
+    end if;
+  end if;
+end
+$$;

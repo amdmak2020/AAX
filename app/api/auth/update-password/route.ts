@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getUnexpectedFormFields, requestExceedsBytes } from "@/lib/validation";
 
 const updatePasswordSchema = z
   .object({
@@ -12,9 +13,19 @@ const updatePasswordSchema = z
     message: "Passwords do not match.",
     path: ["confirmPassword"]
   });
+const maxAuthRequestBytes = 16 * 1024;
 
 export async function POST(request: Request) {
+  if (requestExceedsBytes(request, maxAuthRequestBytes)) {
+    return NextResponse.redirect(new URL(`/update-password?error=${encodeURIComponent("Password update payload is too large.")}`, request.url), { status: 303 });
+  }
+
   const formData = await request.formData();
+  const unexpectedFields = getUnexpectedFormFields(formData, ["password", "confirmPassword"]);
+  if (unexpectedFields.length > 0) {
+    return NextResponse.redirect(new URL(`/update-password?error=${encodeURIComponent("Unexpected password fields were submitted.")}`, request.url), { status: 303 });
+  }
+
   const password = formData.get("password")?.toString() ?? "";
   const confirmPassword = formData.get("confirmPassword")?.toString() ?? "";
   const parsed = updatePasswordSchema.safeParse({ password, confirmPassword });

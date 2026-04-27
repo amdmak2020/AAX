@@ -3,13 +3,24 @@ import { z } from "zod";
 import { getAppUrl } from "@/lib/env";
 import { applyRateLimitHeaders, enforceRateLimit, normalizeEmail } from "@/lib/request-security";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getUnexpectedFormFields, requestExceedsBytes } from "@/lib/validation";
 
 const resetSchema = z.object({
   email: z.string().email("Enter a valid email address.")
-});
+}).strict();
+const maxAuthRequestBytes = 16 * 1024;
 
 export async function POST(request: Request) {
+  if (requestExceedsBytes(request, maxAuthRequestBytes)) {
+    return NextResponse.redirect(new URL(`/forgot-password?error=${encodeURIComponent("Reset payload is too large.")}`, request.url), { status: 303 });
+  }
+
   const formData = await request.formData();
+  const unexpectedFields = getUnexpectedFormFields(formData, ["email"]);
+  if (unexpectedFields.length > 0) {
+    return NextResponse.redirect(new URL(`/forgot-password?error=${encodeURIComponent("Unexpected reset fields were submitted.")}`, request.url), { status: 303 });
+  }
+
   const email = normalizeEmail(formData.get("email"));
   const parsed = resetSchema.safeParse({ email });
 

@@ -205,6 +205,19 @@ The app now supports a shared Redis-backed rate limiter through Upstash. If thes
 
 the auth routes, boost-job creation, admin job updates, and video proxy requests use a shared rate-limit store instead of the in-memory fallback. If the Upstash envs are missing, the app still works locally with the in-memory limiter.
 
+## Security and database operations
+
+- App code uses the Supabase SDK and parameterized filters only. There is no string-built SQL in request handlers.
+- User-facing reads stay behind Supabase Auth + RLS. Keep the `SUPABASE_SERVICE_ROLE_KEY` server-only and use it only for privileged server actions, background sync, and verified webhooks.
+- The app already uses UUIDs for user, subscription, and job identifiers. Avoid replacing them with sequential public ids.
+- If you ever store third-party user secrets or tokens in Postgres, encrypt them before insert and decrypt only on the server.
+- Keep the production database on least privilege:
+  - anon/authenticated traffic should go through RLS-scoped Supabase clients
+  - only server handlers and webhooks should use the service role
+  - do not expose service-role powered APIs to the browser
+- Run the SQL in [schema.sql](C:/Users/asus/Documents/Codex/2026-04-20-i-want-to-build-a-saas/supabase/schema.sql) after schema changes. It now hardens both the newer `boost_jobs` schema and the legacy `video_jobs` / `subscriptions` tables with extra constraints and indexes.
+- Turn on Supabase backups / PITR for production, and schedule restore drills. Backups are not enough until you have actually restored to a fresh instance and verified the app can boot against it.
+
 ## Admin
 
 `/app/admin` is role-gated through the `profiles.role` column.

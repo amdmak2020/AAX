@@ -9,14 +9,18 @@ import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security"
 import { uploadSourceVideo } from "@/lib/storage/supabase-storage";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getUnexpectedFormFields, multilineTextSchema, optionalHttpUrlSchema, requestExceedsBytes, sanitizeSingleLineText } from "@/lib/validation";
 
 const createBoostSchema = z.object({
-  description: z.string().trim().min(1, "Add a short description before submitting."),
-  sourceUrl: z.string().optional()
-});
+  description: multilineTextSchema({ min: 1, max: 600, requiredMessage: "Add a short description before submitting.", tooLongMessage: "Keep the description under 600 characters." }),
+  sourceUrl: optionalHttpUrlSchema.optional()
+}).strict();
 
 const DEFAULT_PRESET = "balanced" as const;
 const DEFAULT_TARGET_PLATFORM = "tiktok" as const;
+const MAX_CREATE_REQUEST_BYTES = (sourceUploadMaxMb + 2) * 1024 * 1024;
+const allowedUploadMimeTypes = new Set(["video/mp4", "video/quicktime", "video/x-m4v", "video/webm"]);
+const allowedUploadExtensions = [".mp4", ".mov", ".m4v", ".webm"];
 
 function wantsJson(request: Request) {
   return request.headers.get("accept")?.includes("application/json") ?? false;
@@ -38,7 +42,7 @@ function respondWithCreateError(request: Request, code: string, message: string,
 
 function getProjectName(sourceUrl: string, file: File | null) {
   if (file?.name?.trim()) {
-    const withoutExtension = file.name.replace(/\.[^.]+$/, "").trim();
+    const withoutExtension = sanitizeSingleLineText(file.name.replace(/\.[^.]+$/, ""));
     return withoutExtension || "Boosted clip";
   }
 
@@ -61,6 +65,11 @@ function getProjectName(sourceUrl: string, file: File | null) {
 
 function isUploadedFile(value: FormDataEntryValue | null): value is File {
   return value instanceof File && value.size > 0 && value.name.trim().length > 0;
+}
+
+function isSupportedUploadedFile(file: File) {
+  const lowerName = file.name.toLowerCase();
+  return allowedUploadMimeTypes.has(file.type) || allowedUploadExtensions.some((extension) => lowerName.endsWith(extension));
 }
 
 function isSupportedSourceUrl(input: string) {
@@ -88,7 +97,16 @@ function isSupportedSourceUrl(input: string) {
 
 export async function POST(request: Request) {
   try {
+    if (requestExceedsBytes(request, MAX_CREATE_REQUEST_BYTES)) {
+      return respondWithCreateError(request, "request_too_large", `Uploads are currently limited to ${sourceUploadMaxMb}MB.`, 413);
+    }
+
     const formData = await request.formData();
+    const unexpectedFields = getUnexpectedFormFields(formData, ["sourceFile", "sourceUrl", "description"]);
+    if (unexpectedFields.length > 0) {
+      return respondWithCreateError(request, "unexpected_fields", "Unexpected fields were submitted.", 400);
+    }
+
     const file = formData.get("sourceFile");
 
     const parsed = createBoostSchema.safeParse({
@@ -102,7 +120,7 @@ export async function POST(request: Request) {
     }
 
     const hasFile = isUploadedFile(file);
-    const sourceUrl = parsed.data.sourceUrl?.trim() || "";
+    const sourceUrl = parsed.data.sourceUrl || "";
     const hasUrl = sourceUrl.length > 0;
     const useUrlSource = hasUrl;
     const useFileSource = hasFile && !useUrlSource;
@@ -169,6 +187,24 @@ export async function POST(request: Request) {
         respondWithCreateError(request, "file_too_large", `Uploads are currently limited to ${uploadLimitMb}MB.`, 400),
         { limit: 12, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
       );
+    }
+
+    if (useFileSource && file) {
+      if (file.name.length > 255) {
+        return applyRateLimitHeaders(respondWithCreateError(request, "file_name_too_long", "File names must stay under 255 characters.", 400), {
+          limit: 12,
+          remaining: limiter.remaining,
+          resetAt: limiter.resetAt,
+          store: limiter.store
+        });
+      }
+
+      if (!isSupportedUploadedFile(file)) {
+        return applyRateLimitHeaders(
+          respondWithCreateError(request, "unsupported_file_type", "Upload an MP4, MOV, M4V, or WebM video.", 400),
+          { limit: 12, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
+        );
+      }
     }
 
     const jobId = randomUUID();

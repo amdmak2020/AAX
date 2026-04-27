@@ -4,18 +4,29 @@ import { getAppUrl } from "@/lib/env";
 import { applyRateLimitHeaders, enforceRateLimit, normalizeEmail } from "@/lib/request-security";
 import { getSafeRedirectPath } from "@/lib/security";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getUnexpectedFormFields, requestExceedsBytes, singleLineTextSchema } from "@/lib/validation";
 
 const signupSchema = z.object({
-  name: z.string().trim().min(2, "Add your name.").max(80, "Name is too long."),
+  name: singleLineTextSchema({ min: 2, max: 80, requiredMessage: "Add your name.", tooLongMessage: "Name is too long." }),
   email: z.string().email("Enter a valid email address."),
   password: z
     .string()
     .min(8, "Password must be at least 8 characters.")
     .max(128, "Password is too long.")
-});
+}).strict();
+const maxAuthRequestBytes = 16 * 1024;
 
 export async function POST(request: Request) {
+  if (requestExceedsBytes(request, maxAuthRequestBytes)) {
+    return NextResponse.redirect(new URL(`/signup?error=${encodeURIComponent("Sign-up payload is too large.")}`, request.url), { status: 303 });
+  }
+
   const formData = await request.formData();
+  const unexpectedFields = getUnexpectedFormFields(formData, ["name", "email", "password", "next"]);
+  if (unexpectedFields.length > 0) {
+    return NextResponse.redirect(new URL(`/signup?error=${encodeURIComponent("Unexpected sign-up fields were submitted.")}`, request.url), { status: 303 });
+  }
+
   const name = formData.get("name")?.toString() ?? "";
   const email = normalizeEmail(formData.get("email"));
   const password = formData.get("password")?.toString() ?? "";

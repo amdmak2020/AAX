@@ -4,13 +4,14 @@ import { hasRole, isEmailVerified, isRecentlyAuthenticated } from "@/lib/access-
 import { getCurrentProfileOptional } from "@/lib/authz";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { optionalHttpUrlSchema, singleLineTextSchema, strictUuidSchema } from "@/lib/validation";
 
 const schema = z.object({
-  jobId: z.string().uuid(),
+  jobId: strictUuidSchema,
   status: z.enum(["draft", "queued", "processing", "rendering", "completed", "failed"]),
-  outputVideoUrl: z.string().url().optional().or(z.literal("")),
-  errorMessage: z.string().optional()
-});
+  outputVideoUrl: optionalHttpUrlSchema.optional(),
+  errorMessage: singleLineTextSchema({ max: 600, tooLongMessage: "Keep the error message under 600 characters." }).optional()
+}).strict();
 
 export async function POST(request: Request) {
   const profile = await getCurrentProfileOptional();

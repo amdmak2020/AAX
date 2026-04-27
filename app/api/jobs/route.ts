@@ -5,17 +5,28 @@ import { getAppUrl, isSupabaseConfigured } from "@/lib/env";
 import { triggerVideoWorkflow } from "@/lib/n8n";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getUnexpectedFormFields, optionalHttpUrlSchema, requestExceedsBytes, singleLineTextSchema } from "@/lib/validation";
 
 const createJobSchema = z.object({
   mode: z.literal("twitter"),
-  title: z.string().min(2),
-  twitterUrl: z.string().url(),
-  style: z.string().min(1),
-  voice: z.string().min(1)
-});
+  title: singleLineTextSchema({ min: 2, max: 120, requiredMessage: "Title is required.", tooLongMessage: "Title is too long." }),
+  twitterUrl: optionalHttpUrlSchema,
+  style: singleLineTextSchema({ min: 1, max: 80, requiredMessage: "Style is required.", tooLongMessage: "Style is too long." }),
+  voice: singleLineTextSchema({ min: 1, max: 80, requiredMessage: "Voice is required.", tooLongMessage: "Voice is too long." })
+}).strict();
+const maxLegacyJobRequestBytes = 128 * 1024;
 
 export async function POST(request: Request) {
+  if (requestExceedsBytes(request, maxLegacyJobRequestBytes)) {
+    return NextResponse.json({ error: "Job payload is too large." }, { status: 413 });
+  }
+
   const formData = await request.formData();
+  const unexpectedFields = getUnexpectedFormFields(formData, ["mode", "title", "twitterUrl", "style", "voice"]);
+  if (unexpectedFields.length > 0) {
+    return NextResponse.json({ error: "Unexpected fields were submitted." }, { status: 400 });
+  }
+
   const parsed = createJobSchema.safeParse({
     mode: formData.get("mode"),
     title: formData.get("title"),
