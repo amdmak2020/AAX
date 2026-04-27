@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const limiter = enforceRateLimit({
+  const limiter = await enforceRateLimit({
     request,
     bucket: "auth:login",
     key: `${email}:${request.headers.get("user-agent") ?? ""}`,

@@ -33,7 +33,7 @@ export function applyRateLimitHeaders(
   return response;
 }
 
-export function enforceRateLimit(options: {
+export async function enforceRateLimit(options: {
   request: Request;
   bucket: string;
   key?: string | null;
@@ -41,7 +41,7 @@ export function enforceRateLimit(options: {
   windowMs: number;
 }) {
   const baseKey = options.key?.trim() || getClientIp(options.request);
-  return takeRateLimitToken({
+  return await takeRateLimitToken({
     bucket: options.bucket,
     key: baseKey,
     limit: options.limit,

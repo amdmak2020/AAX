@@ -60,6 +60,10 @@ export function getLemonSqueezyWebhookSecret() {
   return process.env.LEMONSQUEEZY_WEBHOOK_SECRET ?? null;
 }
 
+export function hasUpstashRateLimitConfig() {
+  return Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+}
+
 export function getStripePriceId(planKey: Exclude<PlanKey, "free">) {
   const priceIds = {
     creator: process.env.STRIPE_CREATOR_PRICE_ID,

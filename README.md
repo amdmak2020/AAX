@@ -80,6 +80,11 @@ npm run dev -- --hostname localhost --port 3001
 - `N8N_PROCESSOR_ENDPOINT`
 - `N8N_PROCESSOR_SECRET`
 
+### Rate limiting
+
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
+
 `N8N_WEBHOOK_URL` and `N8N_WEBHOOK_SECRET` are still accepted as legacy aliases if your existing external flow already uses those names.
 
 ## Supabase setup
@@ -190,6 +195,15 @@ For local webhook testing, point Lemon Squeezy at:
 ```txt
 http://localhost:3001/api/lemonsqueezy/webhook
 ```
+
+## Production rate limiting
+
+The app now supports a shared Redis-backed rate limiter through Upstash. If these env vars are present:
+
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
+
+the auth routes, boost-job creation, admin job updates, and video proxy requests use a shared rate-limit store instead of the in-memory fallback. If the Upstash envs are missing, the app still works locally with the in-memory limiter.
 
 ## Admin
 

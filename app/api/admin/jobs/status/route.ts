@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Admin access required." }, { status: 403 });
   }
 
-  const limiter = enforceRateLimit({
+  const limiter = await enforceRateLimit({
     request,
     bucket: "admin:job-status",
     key: profile.id,

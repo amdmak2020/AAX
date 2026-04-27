@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
 
-  const limiter = enforceRateLimit({
+  const limiter = await enforceRateLimit({
     request,
     bucket: "video:proxy",
     key: user.id,

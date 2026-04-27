@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     return NextResponse.redirect(new URL(`/update-password?error=${encodeURIComponent(message)}`, request.url), { status: 303 });
   }
 
-  const limiter = enforceRateLimit({
+  const limiter = await enforceRateLimit({
     request,
     bucket: "auth:update-password",
     limit: 10,

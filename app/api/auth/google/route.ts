@@ -7,7 +7,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export async function POST(request: Request) {
   const formData = await request.formData();
   const next = getSafeRedirectPath(formData.get("next")?.toString(), "/app");
-  const limiter = enforceRateLimit({
+  const limiter = await enforceRateLimit({
     request,
     bucket: "auth:google",
     limit: 12,

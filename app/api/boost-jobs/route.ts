@@ -125,7 +125,7 @@ export async function POST(request: Request) {
       return NextResponse.redirect(new URL("/login?next=/app/create", request.url), { status: 303 });
     }
 
-    const limiter = enforceRateLimit({
+    const limiter = await enforceRateLimit({
       request,
       bucket: "boost-jobs:create",
       key: user.id,
