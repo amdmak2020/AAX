@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { parseSafeRemoteUrl } from "@/lib/network-security";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { normalizeHttpUrl } from "@/lib/validation";
@@ -13,6 +14,7 @@ const allowedHosts = new Set([
 ]);
 const maxPreviewVideoBytes = 250 * 1024 * 1024;
 const maxRedirectHops = 3;
+const previewFetchTimeoutMs = 15_000;
 const proxyQuerySchema = z
   .object({
     url: z.string().trim().min(1).max(2048).transform((value, ctx) => {
@@ -27,7 +29,11 @@ const proxyQuerySchema = z
   .strict();
 
 function isAllowedUrl(url: URL) {
-  return url.protocol === "https:" && !url.port && !url.username && !url.password && allowedHosts.has(url.hostname);
+  try {
+    return parseSafeRemoteUrl(url.toString(), { allowHosts: allowedHosts }).protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 async function userOwnsVideoUrl(userId: string, normalizedUrl: string) {
@@ -62,7 +68,8 @@ async function fetchWithAllowedRedirects(initialUrl: URL, range: string | null) 
         "user-agent": "AutoAgentXVideoProxy/1.0"
       },
       redirect: "manual",
-      cache: "no-store"
+      cache: "no-store",
+      signal: AbortSignal.timeout(previewFetchTimeoutMs)
     });
 
     if (upstream.status >= 300 && upstream.status < 400) {
@@ -71,8 +78,8 @@ async function fetchWithAllowedRedirects(initialUrl: URL, range: string | null) 
         return upstream;
       }
 
-      const redirectedUrl = new URL(location, currentUrl);
-      if (!isAllowedUrl(redirectedUrl)) {
+      const redirectedUrl = parseSafeRemoteUrl(new URL(location, currentUrl).toString(), { allowHosts: allowedHosts });
+      if (redirectedUrl.protocol !== "https:") {
         throw new Error("Redirected video host is not allowed.");
       }
 
@@ -130,7 +137,7 @@ export async function GET(request: Request) {
 
   let targetUrl: URL;
   try {
-    targetUrl = new URL(parsedQuery.data.url);
+    targetUrl = parseSafeRemoteUrl(parsedQuery.data.url, { allowHosts: allowedHosts });
   } catch {
     return applyRateLimitHeaders(NextResponse.json({ error: "Invalid video URL." }, { status: 400 }), {
       limit: 120,
@@ -178,7 +185,7 @@ export async function GET(request: Request) {
   }
 
   const headers = new Headers();
-  const contentType = upstream.headers.get("content-type") ?? "video/mp4";
+  const contentType = upstream.headers.get("content-type") ?? "application/octet-stream";
   const contentLength = upstream.headers.get("content-length");
   const contentRange = upstream.headers.get("content-range");
   const acceptRanges = upstream.headers.get("accept-ranges") ?? "bytes";
@@ -193,7 +200,7 @@ export async function GET(request: Request) {
     });
   }
 
-  if (contentType.includes("text/html")) {
+  if (contentType.includes("text/html") || (!contentType.startsWith("video/") && contentType !== "application/octet-stream")) {
     return applyRateLimitHeaders(NextResponse.json({ error: "The upstream preview did not return a video stream." }, { status: 415 }), {
       limit: 120,
       remaining: limiter.remaining,

@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 const { canAccessUserResource, hasRole, isEmailVerified, isRecentlyAuthenticated, normalizeRole } = await import(
   new URL("../lib/access-control.ts", import.meta.url).href
 );
+const { detectVideoFileType } = await import(new URL("../lib/file-security.ts", import.meta.url).href);
+const { isSafeRemoteUrl } = await import(new URL("../lib/network-security.ts", import.meta.url).href);
 const { normalizeHttpUrl, sanitizeMultilineText, sanitizeSingleLineText } = await import(new URL("../lib/validation.ts", import.meta.url).href);
 
 assert.equal(normalizeRole("user"), "owner", "legacy user role should normalize to owner");
@@ -59,5 +61,22 @@ assert.equal(
   "https://example.com/path?q=1",
   "URL normalization should strip fragments"
 );
+assert.equal(
+  isSafeRemoteUrl("https://x.com/cookwithzuri/status/2046615624286179416"),
+  true,
+  "public https URLs should be allowed when they are not internal"
+);
+assert.equal(isSafeRemoteUrl("http://127.0.0.1:3000/test"), false, "localhost IPv4 targets must be blocked");
+assert.equal(isSafeRemoteUrl("http://169.254.169.254/latest/meta-data"), false, "metadata IP targets must be blocked");
+assert.deepEqual(
+  detectVideoFileType(
+    new Uint8Array([
+      0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0x00, 0x00, 0x00, 0x00
+    ])
+  ),
+  { mime: "video/mp4", extension: "mp4" },
+  "MP4 signatures should be detected from file bytes"
+);
+assert.equal(detectVideoFileType(new Uint8Array([0x3c, 0x73, 0x76, 0x67])), null, "non-video payloads must be rejected");
 
 console.log("Security access-control checks passed.");

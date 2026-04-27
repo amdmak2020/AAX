@@ -1,5 +1,9 @@
 import { getEnv } from "@/lib/env";
+import { parseSafeRemoteUrl } from "@/lib/network-security";
 import type { ProcessorProvider, ProcessorWebhookResult, ProcessorSubmitInput, ProcessorSubmitResult } from "@/lib/processor/types";
+
+const processorSubmitTimeoutMs = 15_000;
+const maxProcessorErrorText = 500;
 
 export const n8nProcessorProvider: ProcessorProvider = {
   key: "n8n",
@@ -15,17 +19,41 @@ export const n8nProcessorProvider: ProcessorProvider = {
       };
     }
 
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        ...(secret ? { "x-processor-secret": secret } : {})
-      },
-      body: JSON.stringify(input)
-    });
+    let safeEndpoint: URL;
+    try {
+      safeEndpoint = parseSafeRemoteUrl(endpoint);
+    } catch {
+      return {
+        accepted: false,
+        status: "failed",
+        message: "Processor endpoint configuration is invalid."
+      };
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(safeEndpoint, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(secret ? { "x-processor-secret": secret } : {})
+        },
+        body: JSON.stringify(input),
+        signal: AbortSignal.timeout(processorSubmitTimeoutMs)
+      });
+    } catch (error) {
+      return {
+        accepted: false,
+        status: "failed",
+        message: error instanceof Error && error.name === "TimeoutError" ? "Processor timed out before accepting the job." : "Processor was unavailable."
+      };
+    }
 
     if (!response.ok) {
-      const message = await response.text().catch(() => `Processor returned ${response.status}.`);
+      const message = await response
+        .text()
+        .then((text) => text.slice(0, maxProcessorErrorText))
+        .catch(() => `Processor returned ${response.status}.`);
       return {
         accepted: false,
         status: "failed",

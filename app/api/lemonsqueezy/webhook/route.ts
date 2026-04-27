@@ -4,6 +4,7 @@ import { planCatalog, type PlanKey } from "@/lib/app-config";
 import { normalizeSubscriptionRow, type SubscriptionStatus, updateSubscriptionPlan } from "@/lib/account-bootstrap";
 import { getLemonSqueezyVariantId, getLemonSqueezyWebhookSecret } from "@/lib/env";
 import { verifyLemonSqueezySignature } from "@/lib/lemonsqueezy";
+import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requestExceedsBytes, strictUuidSchema } from "@/lib/validation";
 import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
@@ -87,27 +88,64 @@ export async function POST(request: Request) {
   let eventName: string | undefined;
 
   try {
+    const limiter = await enforceRateLimit({
+      request,
+      bucket: "webhook:lemonsqueezy",
+      limit: 240,
+      windowMs: 10 * 60 * 1000
+    });
+
+    if (!limiter.allowed) {
+      return applyRateLimitHeaders(NextResponse.json({ error: "Too many requests." }, { status: 429 }), {
+        limit: 240,
+        remaining: limiter.remaining,
+        resetAt: limiter.resetAt,
+        retryAfterSeconds: limiter.retryAfterSeconds,
+        store: limiter.store
+      });
+    }
+
     if (requestExceedsBytes(request, maxLemonWebhookBytes)) {
-      return NextResponse.json({ error: "Webhook payload is too large." }, { status: 413 });
+      return applyRateLimitHeaders(NextResponse.json({ error: "Request rejected." }, { status: 413 }), {
+        limit: 240,
+        remaining: limiter.remaining,
+        resetAt: limiter.resetAt,
+        store: limiter.store
+      });
     }
 
     const secret = getLemonSqueezyWebhookSecret();
     if (!secret) {
       console.error("Lemon Squeezy webhook is missing a signing secret.");
-      return NextResponse.json({ error: "Webhook configuration is incomplete." }, { status: 500 });
+      return applyRateLimitHeaders(NextResponse.json({ error: "Webhook processing failed." }, { status: 500 }), {
+        limit: 240,
+        remaining: limiter.remaining,
+        resetAt: limiter.resetAt,
+        store: limiter.store
+      });
     }
 
     const signature = request.headers.get("X-Signature");
     const payloadText = await request.text();
 
     if (!verifyLemonSqueezySignature(payloadText, signature, secret)) {
-      return NextResponse.json({ error: "Invalid webhook signature." }, { status: 400 });
+      return applyRateLimitHeaders(NextResponse.json({ error: "Unauthorized" }, { status: 401 }), {
+        limit: 240,
+        remaining: limiter.remaining,
+        resetAt: limiter.resetAt,
+        store: limiter.store
+      });
     }
 
     const rawPayload = JSON.parse(payloadText) as unknown;
     const parsedPayload = lemonWebhookSchema.safeParse(rawPayload);
     if (!parsedPayload.success) {
-      return NextResponse.json({ error: "Invalid Lemon Squeezy webhook payload." }, { status: 400 });
+      return applyRateLimitHeaders(NextResponse.json({ error: "Invalid webhook payload." }, { status: 400 }), {
+        limit: 240,
+        remaining: limiter.remaining,
+        resetAt: limiter.resetAt,
+        store: limiter.store
+      });
     }
 
     const payload = parsedPayload.data;
@@ -123,7 +161,12 @@ export async function POST(request: Request) {
     });
     ledgerId = "ledgerId" in reservation ? reservation.ledgerId ?? null : null;
     if (!reservation.reserved) {
-      return NextResponse.json({ received: true, duplicate: true, store: reservation.store });
+      return applyRateLimitHeaders(NextResponse.json({ received: true, duplicate: true, store: reservation.store }), {
+        limit: 240,
+        remaining: limiter.remaining,
+        resetAt: limiter.resetAt,
+        store: limiter.store
+      });
     }
 
     const dataType = payload.data?.type ?? null;
@@ -136,7 +179,12 @@ export async function POST(request: Request) {
         status: "skipped",
         metadata: { provider: "lemonsqueezy", event_name: eventName ?? null, reason: "subscription_invoices_ignored" }
       });
-      return NextResponse.json({ received: true, skipped: true });
+      return applyRateLimitHeaders(NextResponse.json({ received: true, skipped: true }), {
+        limit: 240,
+        remaining: limiter.remaining,
+        resetAt: limiter.resetAt,
+        store: limiter.store
+      });
     }
 
     const customerId = attributes?.customer_id ? String(attributes.customer_id) : null;
@@ -178,7 +226,12 @@ export async function POST(request: Request) {
           reason: "missing_user_mapping"
         }
       });
-      return NextResponse.json({ received: true, skipped: true });
+      return applyRateLimitHeaders(NextResponse.json({ received: true, skipped: true }), {
+        limit: 240,
+        remaining: limiter.remaining,
+        resetAt: limiter.resetAt,
+        store: limiter.store
+      });
     }
 
     const existingSubscription = existingSubscriptionRow ? normalizeSubscriptionRow(userId, existingSubscriptionRow) : null;
@@ -227,7 +280,12 @@ export async function POST(request: Request) {
       }
     });
 
-    return NextResponse.json({ received: true });
+    return applyRateLimitHeaders(NextResponse.json({ received: true }), {
+      limit: 240,
+      remaining: limiter.remaining,
+      resetAt: limiter.resetAt,
+      store: limiter.store
+    });
   } catch (error) {
     console.error("Lemon Squeezy webhook error", error);
     await finalizePersistentWebhookEvent({

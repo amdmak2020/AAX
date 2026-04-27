@@ -142,8 +142,9 @@ create policy "Users insert own boost jobs" on public.boost_jobs for insert with
 create policy "Users update own boost jobs" on public.boost_jobs for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 insert into storage.buckets (id, name, public)
-values ('source-videos', 'source-videos', true)
-on conflict (id) do nothing;
+values ('source-videos', 'source-videos', false)
+on conflict (id) do update
+set public = false;
 
 create policy "Users upload source videos" on storage.objects
 for insert to authenticated

@@ -6,7 +6,9 @@ import { ensureAccountRecords, updateSubscriptionUsage } from "@/lib/account-boo
 import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
 import { verifyCsrfRequest } from "@/lib/csrf";
 import { bypassUsageLimits, getAppUrl } from "@/lib/env";
+import { detectVideoFileType } from "@/lib/file-security";
 import { reserveIdempotencyKey } from "@/lib/idempotency";
+import { parseSafeRemoteUrl } from "@/lib/network-security";
 import { getProcessorProvider } from "@/lib/processor/provider";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { uploadSourceVideo } from "@/lib/storage/supabase-storage";
@@ -23,8 +25,7 @@ const createBoostSchema = z.object({
 const DEFAULT_PRESET = "balanced" as const;
 const DEFAULT_TARGET_PLATFORM = "tiktok" as const;
 const MAX_CREATE_REQUEST_BYTES = (sourceUploadMaxMb + 2) * 1024 * 1024;
-const allowedUploadMimeTypes = new Set(["video/mp4", "video/quicktime", "video/x-m4v", "video/webm"]);
-const allowedUploadExtensions = [".mp4", ".mov", ".m4v", ".webm"];
+const allowedSourceHosts = new Set(["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "x.com", "www.x.com", "twitter.com", "www.twitter.com"]);
 
 function wantsJson(request: Request) {
   return request.headers.get("accept")?.includes("application/json") ?? false;
@@ -72,28 +73,13 @@ function isUploadedFile(value: FormDataEntryValue | null): value is File {
 }
 
 function isSupportedUploadedFile(file: File) {
-  const lowerName = file.name.toLowerCase();
-  return allowedUploadMimeTypes.has(file.type) || allowedUploadExtensions.some((extension) => lowerName.endsWith(extension));
+  return file.size > 0;
 }
 
 function isSupportedSourceUrl(input: string) {
   try {
-    const url = new URL(input);
-    if (!["http:", "https:"].includes(url.protocol)) {
-      return false;
-    }
-
-    const hostname = url.hostname.toLowerCase();
-    return [
-      "youtube.com",
-      "www.youtube.com",
-      "m.youtube.com",
-      "youtu.be",
-      "x.com",
-      "www.x.com",
-      "twitter.com",
-      "www.twitter.com"
-    ].includes(hostname);
+    const url = parseSafeRemoteUrl(input, { allowHosts: allowedSourceHosts });
+    return allowedSourceHosts.has(url.hostname.toLowerCase());
   } catch {
     return false;
   }
@@ -227,6 +213,14 @@ export async function POST(request: Request) {
           { limit: 12, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
         );
       }
+
+      const detectedType = detectVideoFileType(new Uint8Array(await file.slice(0, 96).arrayBuffer()));
+      if (!detectedType) {
+        return applyRateLimitHeaders(
+          respondWithCreateError(request, "unsupported_file_type", "Upload an MP4, MOV, M4V, or WebM video.", 400),
+          { limit: 12, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
+        );
+      }
     }
 
     const jobId = randomUUID();
@@ -236,7 +230,8 @@ export async function POST(request: Request) {
         : {
             path: null,
             publicUrl: sourceUrl,
-            fileName: null
+            fileName: null,
+            detectedMime: null
           };
 
     const insert = await admin.from("video_jobs").insert({
@@ -316,7 +311,7 @@ export async function POST(request: Request) {
       description: parsed.data.description,
       sourceType: useFileSource ? "upload" : "external-url",
       sourceVideoUrl: source.publicUrl,
-      sourceFileName: useFileSource && file ? file.name : null,
+      sourceFileName: source.fileName,
       callbackUrl: `${getAppUrl()}/api/webhooks/processor`,
       advanced: {
         subtitleStyle: null,

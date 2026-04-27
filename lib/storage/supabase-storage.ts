@@ -1,8 +1,9 @@
-import { sanitizeFileName } from "@/lib/utils";
+import { buildRandomStorageName, detectVideoFileType } from "@/lib/file-security";
 import { sanitizeSingleLineText } from "@/lib/validation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const SOURCE_VIDEOS_BUCKET = "source-videos";
+const sourceVideoUrlTtlSeconds = 7 * 24 * 60 * 60;
 
 async function ensureSourceVideosBucket() {
   const supabase = createSupabaseAdminClient();
@@ -18,7 +19,7 @@ async function ensureSourceVideosBucket() {
   }
 
   const { error: createError } = await supabase.storage.createBucket(SOURCE_VIDEOS_BUCKET, {
-    public: true,
+    public: false,
     fileSizeLimit: "20MB"
   });
 
@@ -33,18 +34,25 @@ export async function uploadSourceVideo(params: {
   file: File;
 }) {
   const supabase = createSupabaseAdminClient();
-  const filePath = `${params.userId}/${params.jobId}/${sanitizeFileName(params.file.name)}`;
   const arrayBuffer = await params.file.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+  const detectedType = detectVideoFileType(bytes);
+
+  if (!detectedType) {
+    throw new Error("Unsupported or invalid video file.");
+  }
+
+  const filePath = `${params.userId}/${params.jobId}/${buildRandomStorageName(detectedType.extension)}`;
 
   let { error } = await supabase.storage.from(SOURCE_VIDEOS_BUCKET).upload(filePath, arrayBuffer, {
-    contentType: params.file.type,
+    contentType: detectedType.mime,
     upsert: false
   });
 
   if (error?.message === "Bucket not found") {
     await ensureSourceVideosBucket();
     ({ error } = await supabase.storage.from(SOURCE_VIDEOS_BUCKET).upload(filePath, arrayBuffer, {
-      contentType: params.file.type,
+      contentType: detectedType.mime,
       upsert: false
     }));
   }
@@ -53,10 +61,15 @@ export async function uploadSourceVideo(params: {
     throw new Error(error.message);
   }
 
-  const { data } = supabase.storage.from(SOURCE_VIDEOS_BUCKET).getPublicUrl(filePath);
+  const signedUrlResult = await supabase.storage.from(SOURCE_VIDEOS_BUCKET).createSignedUrl(filePath, sourceVideoUrlTtlSeconds);
+  if (signedUrlResult.error || !signedUrlResult.data?.signedUrl) {
+    throw new Error(signedUrlResult.error?.message ?? "Could not generate a temporary source video URL.");
+  }
+
   return {
     path: filePath,
-    publicUrl: data.publicUrl,
-    fileName: sanitizeSingleLineText(params.file.name).slice(0, 255)
+    publicUrl: signedUrlResult.data.signedUrl,
+    fileName: sanitizeSingleLineText(params.file.name).slice(0, 255),
+    detectedMime: detectedType.mime
   };
 }

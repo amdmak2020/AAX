@@ -3,6 +3,7 @@ import { z } from "zod";
 import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
 import { getEnv, isSupabaseConfigured } from "@/lib/env";
 import { statusLabels } from "@/lib/jobs";
+import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { secureCompare } from "@/lib/security";
 import { optionalHttpUrlSchema, requestExceedsBytes, singleLineTextSchema, strictUuidSchema } from "@/lib/validation";
@@ -25,16 +26,42 @@ const n8nWebhookSchema = z
 
 export async function POST(request: Request) {
   let ledgerId: string | null = null;
+  const limiter = await enforceRateLimit({
+    request,
+    bucket: "webhook:n8n",
+    limit: 180,
+    windowMs: 10 * 60 * 1000
+  });
+
+  if (!limiter.allowed) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "Too many requests." }, { status: 429 }), {
+      limit: 180,
+      remaining: limiter.remaining,
+      resetAt: limiter.resetAt,
+      retryAfterSeconds: limiter.retryAfterSeconds,
+      store: limiter.store
+    });
+  }
 
   if (requestExceedsBytes(request, maxWebhookBytes)) {
-    return NextResponse.json({ error: "Webhook payload is too large." }, { status: 413 });
+    return applyRateLimitHeaders(NextResponse.json({ error: "Request rejected." }, { status: 413 }), {
+      limit: 180,
+      remaining: limiter.remaining,
+      resetAt: limiter.resetAt,
+      store: limiter.store
+    });
   }
 
   const secret = getEnv("N8N_WEBHOOK_SECRET");
   const incoming = request.headers.get("x-shorts-machine-secret");
 
   if (!secureCompare(secret, incoming)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return applyRateLimitHeaders(NextResponse.json({ error: "Unauthorized" }, { status: 401 }), {
+      limit: 180,
+      remaining: limiter.remaining,
+      resetAt: limiter.resetAt,
+      store: limiter.store
+    });
   }
 
   const body = await request.json().catch(() => null);
@@ -45,12 +72,22 @@ export async function POST(request: Request) {
   });
   ledgerId = "ledgerId" in reservation ? reservation.ledgerId ?? null : null;
   if (!reservation.reserved) {
-    return NextResponse.json({ received: true, duplicate: true, store: reservation.store });
+    return applyRateLimitHeaders(NextResponse.json({ received: true, duplicate: true, store: reservation.store }), {
+      limit: 180,
+      remaining: limiter.remaining,
+      resetAt: limiter.resetAt,
+      store: limiter.store
+    });
   }
 
   const parsed = n8nWebhookSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid status update" }, { status: 400 });
+    return applyRateLimitHeaders(NextResponse.json({ error: "Invalid webhook payload." }, { status: 400 }), {
+      limit: 180,
+      remaining: limiter.remaining,
+      resetAt: limiter.resetAt,
+      store: limiter.store
+    });
   }
 
   if (isSupabaseConfigured()) {
@@ -75,7 +112,12 @@ export async function POST(request: Request) {
         metadata: { provider: "n8n", job_id: parsed.data.jobId, status: parsed.data.status },
         errorMessage: error.message
       });
-      return NextResponse.json({ error: "Webhook processing failed." }, { status: 500 });
+      return applyRateLimitHeaders(NextResponse.json({ error: "Webhook processing failed." }, { status: 500 }), {
+        limit: 180,
+        remaining: limiter.remaining,
+        resetAt: limiter.resetAt,
+        store: limiter.store
+      });
     }
   }
 
@@ -101,5 +143,10 @@ export async function POST(request: Request) {
     }
   });
 
-  return NextResponse.json({ ok: true });
+  return applyRateLimitHeaders(NextResponse.json({ ok: true }), {
+    limit: 180,
+    remaining: limiter.remaining,
+    resetAt: limiter.resetAt,
+    store: limiter.store
+  });
 }
