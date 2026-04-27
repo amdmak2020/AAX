@@ -6,6 +6,7 @@ import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security"
 import { getSafeRedirectPath } from "@/lib/security";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUnexpectedFormFields, requestExceedsBytes } from "@/lib/validation";
+import { sendOperationalAlert } from "@/lib/monitoring";
 
 const maxAuthRequestBytes = 16 * 1024;
 
@@ -34,6 +35,12 @@ export async function POST(request: Request) {
   });
 
   if (!limiter.allowed) {
+    await sendOperationalAlert({
+      code: "auth-google-rate-limited",
+      severity: "warning",
+      summary: "Google sign-in start hit the abuse limiter.",
+      dedupeKey: request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip") ?? "unknown"
+    });
     return applyRateLimitHeaders(
       NextResponse.redirect(new URL(`/login?error=${encodeURIComponent("Too many sign-in attempts. Please try again shortly.")}`, request.url), {
         status: 303
@@ -61,7 +68,7 @@ export async function POST(request: Request) {
       action: "auth.google_start_failed",
       metadata: buildRequestAuditMetadata(request)
     });
-    return applyRateLimitHeaders(NextResponse.json({ error: error?.message ?? "Could not start Google sign in." }, { status: 400 }), {
+    return applyRateLimitHeaders(NextResponse.json({ error: "Could not start Google sign in." }, { status: 400 }), {
       limit: 12,
       remaining: limiter.remaining,
       resetAt: limiter.resetAt,

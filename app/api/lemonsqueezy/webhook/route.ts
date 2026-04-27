@@ -10,6 +10,7 @@ import { requestExceedsBytes, strictUuidSchema } from "@/lib/validation";
 import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
 import { finalizePersistentWebhookEvent, reservePersistentWebhookEvent } from "@/lib/webhook-ledger";
 import { logServerError } from "@/lib/secure-log";
+import { sendOperationalAlert } from "@/lib/monitoring";
 
 const maxLemonWebhookBytes = 256 * 1024;
 const stringOrNumberSchema = z.union([z.string(), z.number()]);
@@ -243,6 +244,16 @@ export async function POST(request: Request) {
         : mappedPlanKey;
     const status = normalizeStatus(eventName, attributes?.status, planKey);
 
+    if (status === "past_due" || status === "cancelled" || status === "expired" || status === "refunded" || status === "paused") {
+      await sendOperationalAlert({
+        code: `billing-${status}`,
+        severity: status === "past_due" || status === "refunded" ? "critical" : "warning",
+        summary: `A Lemon Squeezy subscription entered ${status}.`,
+        dedupeKey: subscriptionId ?? customerId,
+        details: { userId, subscriptionId, customerId, eventName, planKey, status }
+      });
+    }
+
     await updateSubscriptionPlan({
       userId,
       customerId,
@@ -289,6 +300,13 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     logServerError("Lemon Squeezy webhook error", { error, targetUserId, eventName, webhookId });
+    await sendOperationalAlert({
+      code: "billing-webhook-failed",
+      severity: "critical",
+      summary: "A Lemon Squeezy webhook failed to process.",
+      dedupeKey: webhookId ?? targetUserId,
+      details: { targetUserId, eventName, webhookId }
+    });
     await finalizePersistentWebhookEvent({
       ledgerId,
       status: "failed",

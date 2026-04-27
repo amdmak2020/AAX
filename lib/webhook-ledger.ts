@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { reserveWebhookDelivery } from "@/lib/webhook-idempotency";
+import { logServerError } from "@/lib/secure-log";
 
 type WebhookLedgerStatus = "processing" | "processed" | "failed" | "skipped";
 
@@ -86,7 +87,7 @@ export async function reservePersistentWebhookEvent(options: {
 
     throw new Error(insert.error?.message ?? "Could not reserve webhook event.");
   } catch (error) {
-    console.error("Webhook ledger reservation failed", error);
+    logServerError("Webhook ledger reservation failed", { error, source: options.source });
     return reserveWebhookDelivery({
       source: options.source,
       payload: options.payload,
@@ -122,9 +123,9 @@ export async function finalizePersistentWebhookEvent(input: {
       return;
     }
     if (update.error) {
-      console.error("Webhook ledger finalization failed", update.error);
+      logServerError("Webhook ledger finalization failed", { reason: update.error.message, ledgerId: input.ledgerId, status: input.status });
     }
   } catch (error) {
-    console.error("Webhook ledger finalization failed", error);
+    logServerError("Webhook ledger finalization failed", { error, ledgerId: input.ledgerId, status: input.status });
   }
 }

@@ -8,6 +8,8 @@ import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security"
 import { secureCompare } from "@/lib/security";
 import { optionalHttpUrlSchema, requestExceedsBytes, singleLineTextSchema, strictUuidSchema } from "@/lib/validation";
 import { finalizePersistentWebhookEvent, reservePersistentWebhookEvent } from "@/lib/webhook-ledger";
+import { logServerError } from "@/lib/secure-log";
+import { sendOperationalAlert } from "@/lib/monitoring";
 
 const maxProcessorWebhookBytes = 64 * 1024;
 const processorWebhookResultSchema = z
@@ -126,7 +128,14 @@ export async function POST(request: Request) {
     .eq("id", targetId);
 
   if (update.error) {
-    console.error("Processor webhook update failed", update.error);
+    logServerError("Processor webhook update failed", { reason: update.error.message, targetId, provider: provider.key });
+    await sendOperationalAlert({
+      code: "processor-webhook-update-failed",
+      severity: "critical",
+      summary: "The processor webhook could not update a video job.",
+      dedupeKey: targetId,
+      details: { targetId, provider: provider.key, externalJobId: parsed.data.externalJobId ?? null }
+    });
     await finalizePersistentWebhookEvent({
       ledgerId,
       status: "failed",
@@ -163,6 +172,16 @@ export async function POST(request: Request) {
       status: parsed.data.status
     }
   });
+
+  if (parsed.data.status === "failed") {
+    await sendOperationalAlert({
+      code: "processor-job-failed",
+      severity: "warning",
+      summary: "A processor webhook reported a failed job.",
+      dedupeKey: targetId,
+      details: { targetId, provider: provider.key, externalJobId: parsed.data.externalJobId ?? null }
+    });
+  }
 
   return applyRateLimitHeaders(NextResponse.json({ ok: true }), {
     limit: 180,

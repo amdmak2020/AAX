@@ -4,6 +4,7 @@ import { isEmailVerified } from "@/lib/access-control";
 import { buildRequestAuditMetadata, hashAuditIdentifier, logAuditEvent } from "@/lib/audit";
 import { verifyCsrfRequest } from "@/lib/csrf";
 import { applyRateLimitHeaders, enforceRateLimit, normalizeEmail } from "@/lib/request-security";
+import { sendOperationalAlert } from "@/lib/monitoring";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSafeRedirectPath } from "@/lib/security";
 import { getUnexpectedFormFields, requestExceedsBytes } from "@/lib/validation";
@@ -51,6 +52,13 @@ export async function POST(request: Request) {
   });
 
   if (!limiter.allowed) {
+    await sendOperationalAlert({
+      code: "auth-login-rate-limited",
+      severity: "warning",
+      summary: "Repeated login failures triggered the per-identity limiter.",
+      dedupeKey: parsed.data.email,
+      details: { scope: "identity", emailHash: hashAuditIdentifier(parsed.data.email) }
+    });
     return applyRateLimitHeaders(
       NextResponse.redirect(new URL(`/login?error=${encodeURIComponent("Too many login attempts. Try again in a few minutes.")}`, request.url), {
         status: 303
@@ -67,6 +75,13 @@ export async function POST(request: Request) {
   });
 
   if (!ipLimiter.allowed) {
+    await sendOperationalAlert({
+      code: "auth-login-ip-rate-limited",
+      severity: "warning",
+      summary: "Repeated login failures triggered the per-IP limiter.",
+      dedupeKey: request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip") ?? "unknown",
+      details: { scope: "ip" }
+    });
     return applyRateLimitHeaders(
       NextResponse.redirect(new URL(`/login?error=${encodeURIComponent("Too many login attempts. Try again in a few minutes.")}`, request.url), {
         status: 303

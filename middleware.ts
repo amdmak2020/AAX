@@ -29,6 +29,16 @@ const contentSecurityPolicy = [
 ].join("; ");
 
 export function middleware(request: NextRequest) {
+  if (
+    process.env.NODE_ENV === "production" &&
+    request.headers.get("x-forwarded-proto") === "http" &&
+    !/^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(request.headers.get("host") ?? "")
+  ) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.protocol = "https:";
+    return NextResponse.redirect(redirectUrl, { status: 308 });
+  }
+
   const isProtected = protectedPrefixes.some((prefix) => request.nextUrl.pathname.startsWith(prefix));
   let response = NextResponse.next({
     request
@@ -48,9 +58,13 @@ export function middleware(request: NextRequest) {
 
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("X-Content-Type-Options", "nosniff");
+  if (process.env.NODE_ENV === "production") {
+    response.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+  }
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   response.headers.set("Cross-Origin-Opener-Policy", "same-origin");
+  response.headers.set("Cross-Origin-Resource-Policy", "same-site");
   response.headers.set("X-DNS-Prefetch-Control", "off");
   response.headers.set("X-Permitted-Cross-Domain-Policies", "none");
   response.headers.set("Origin-Agent-Cluster", "?1");

@@ -17,6 +17,7 @@ import { uploadSourceVideo } from "@/lib/storage/supabase-storage";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUnexpectedFormFields, multilineTextSchema, optionalHttpUrlSchema, requestExceedsBytes, sanitizeSingleLineText } from "@/lib/validation";
+import { sendOperationalAlert } from "@/lib/monitoring";
 
 const createBoostSchema = z.object({
   description: multilineTextSchema({ min: 1, max: 600, requiredMessage: "Add a short description before submitting.", tooLongMessage: "Keep the description under 600 characters." }),
@@ -165,6 +166,13 @@ export async function POST(request: Request) {
     });
 
     if (!limiter.allowed) {
+      await sendOperationalAlert({
+        code: "boost-job-spike",
+        severity: "warning",
+        summary: "A user hit the boost job creation limiter.",
+        dedupeKey: user.id,
+        details: { userId: user.id, windowMinutes: 15, limit: 12 }
+      });
       return applyRateLimitHeaders(
         respondWithCreateError(
           request,
@@ -266,6 +274,13 @@ export async function POST(request: Request) {
 
     if (insert.error) {
       logServerError("Boost job insert failed", { reason: insert.error.message, userId: user.id, jobId });
+      await sendOperationalAlert({
+        code: "boost-job-db-insert-failed",
+        severity: "critical",
+        summary: "Boost job creation failed during database insert.",
+        dedupeKey: user.id,
+        details: { userId: user.id, jobId }
+      });
       return applyRateLimitHeaders(respondWithCreateError(request, "generic", "We couldn't save that submission right now.", 500), {
         limit: 12,
         remaining: limiter.remaining,
@@ -293,6 +308,13 @@ export async function POST(request: Request) {
       });
     } catch (error) {
       logServerError("Boost job usage update failed", { error, userId: user.id, jobId });
+      await sendOperationalAlert({
+        code: "credit-reservation-failed",
+        severity: "critical",
+        summary: "Credit reservation failed while creating a boost job.",
+        dedupeKey: user.id,
+        details: { userId: user.id, jobId }
+      });
       return applyRateLimitHeaders(respondWithCreateError(request, "usage_update_failed", "We couldn't reserve a credit for that clip.", 500), {
         limit: 12,
         remaining: limiter.remaining,
@@ -310,6 +332,13 @@ export async function POST(request: Request) {
 
     if (usageLedgerInsert.error) {
       logServerError("Usage ledger insert failed", { reason: usageLedgerInsert.error.message, userId: user.id, jobId });
+      await sendOperationalAlert({
+        code: "usage-ledger-insert-failed",
+        severity: "critical",
+        summary: "Usage ledger write failed after boost job creation.",
+        dedupeKey: user.id,
+        details: { userId: user.id, jobId }
+      });
       return applyRateLimitHeaders(respondWithCreateError(request, "usage_update_failed", "We couldn't finalize the credit reservation.", 500), {
         limit: 12,
         remaining: limiter.remaining,
@@ -357,6 +386,11 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     logServerError("Boost job creation failed", { error });
+    await sendOperationalAlert({
+      code: "boost-job-create-failed",
+      severity: "critical",
+      summary: "Boost job creation crashed before completion."
+    });
     return respondWithCreateError(request, "generic", "The boost did not start. Please try again.", 500);
   }
 }

@@ -8,6 +8,8 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { secureCompare } from "@/lib/security";
 import { optionalHttpUrlSchema, requestExceedsBytes, singleLineTextSchema, strictUuidSchema } from "@/lib/validation";
 import { finalizePersistentWebhookEvent, reservePersistentWebhookEvent } from "@/lib/webhook-ledger";
+import { logServerError } from "@/lib/secure-log";
+import { sendOperationalAlert } from "@/lib/monitoring";
 
 const maxWebhookBytes = 64 * 1024;
 const n8nWebhookSchema = z
@@ -105,7 +107,14 @@ export async function POST(request: Request) {
       .eq("id", parsed.data.jobId);
 
     if (error) {
-      console.error("n8n webhook update failed", error);
+      logServerError("n8n webhook update failed", { reason: error.message, jobId: parsed.data.jobId, status: parsed.data.status });
+      await sendOperationalAlert({
+        code: "video-queue-update-failed",
+        severity: "critical",
+        summary: "The n8n webhook could not update a video job.",
+        dedupeKey: parsed.data.jobId,
+        details: { jobId: parsed.data.jobId, status: parsed.data.status }
+      });
       await finalizePersistentWebhookEvent({
         ledgerId,
         status: "failed",
@@ -142,6 +151,16 @@ export async function POST(request: Request) {
       execution_id: parsed.data.executionId ?? parsed.data.n8n_execution_id ?? null
     }
   });
+
+  if (parsed.data.status === "failed") {
+    await sendOperationalAlert({
+      code: "video-job-failed",
+      severity: "warning",
+      summary: "A video processing job reported failed status through n8n.",
+      dedupeKey: parsed.data.jobId,
+      details: { jobId: parsed.data.jobId, executionId: parsed.data.executionId ?? parsed.data.n8n_execution_id ?? null }
+    });
+  }
 
   return applyRateLimitHeaders(NextResponse.json({ ok: true }), {
     limit: 180,

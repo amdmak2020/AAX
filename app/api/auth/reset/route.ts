@@ -7,6 +7,7 @@ import { applyRateLimitHeaders, enforceRateLimit, normalizeEmail } from "@/lib/r
 import { logServerError } from "@/lib/secure-log";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUnexpectedFormFields, requestExceedsBytes } from "@/lib/validation";
+import { sendOperationalAlert } from "@/lib/monitoring";
 
 const resetSchema = z.object({
   email: z.string().email("Enter a valid email address.")
@@ -65,6 +66,12 @@ export async function POST(request: Request) {
   });
 
   if (!ipLimiter.allowed) {
+    await sendOperationalAlert({
+      code: "auth-reset-ip-rate-limited",
+      severity: "warning",
+      summary: "Repeated password reset attempts triggered the per-IP limiter.",
+      dedupeKey: request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip") ?? "unknown"
+    });
     return applyRateLimitHeaders(
       NextResponse.redirect(
         new URL(`/forgot-password?error=${encodeURIComponent("Too many reset requests. Please wait a bit before trying again.")}`, request.url),

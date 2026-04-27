@@ -85,6 +85,10 @@ npm run dev -- --hostname localhost --port 3001
 - `UPSTASH_REDIS_REST_URL`
 - `UPSTASH_REDIS_REST_TOKEN`
 
+### Monitoring / alerting
+
+- `ALERT_WEBHOOK_URL` optional, for forwarding critical operational alerts to Slack, Discord, Better Stack, PagerDuty intake, or another incident channel
+
 `N8N_WEBHOOK_URL` and `N8N_WEBHOOK_SECRET` are still accepted as legacy aliases if your existing external flow already uses those names.
 
 Use separate keys for development, preview / staging, and production. If a secret was pasted into chat, logs, screenshots, or a public issue, rotate it immediately and replace it in your hosting environment manager.
@@ -209,6 +213,42 @@ The app now supports a shared Redis-backed rate limiter through Upstash. If thes
 
 the auth routes, boost-job creation, admin job updates, and video proxy requests use a shared rate-limit store instead of the in-memory fallback. If the Upstash envs are missing, the app still works locally with the in-memory limiter.
 
+## Logging, monitoring, and alerts
+
+- `GET /api/health` is available for uptime checks and returns a minimal database-aware health status without exposing secrets.
+- Auth failures, billing events, webhook failures, upload / submission failures, permission denials, job failures, and admin actions are written to audit logs or structured server logs.
+- Sensitive values are redacted before logging:
+  - auth tokens
+  - cookies
+  - webhook signatures
+  - service-role keys
+  - API secrets
+- If `ALERT_WEBHOOK_URL` is configured, the app emits throttled operational alerts for:
+  - repeated login abuse
+  - billing webhook failures
+  - payment state regressions like `past_due`, `cancelled`, `refunded`, `paused`
+  - failed job queue updates
+  - sudden job-creation spikes
+- Recommended external monitoring:
+  - uptime monitor on `/api/health`
+  - alert on repeated `5xx` rates in Vercel
+  - alert on Supabase database connectivity failures
+  - alert on unusual storage growth / quota exhaustion
+
+## Backups and disaster recovery
+
+- Enable daily automated backups / PITR in Supabase for production.
+- Keep backups in provider-managed encrypted storage separate from the app runtime.
+- Run restore drills regularly: create a fresh database from backup and verify the app can boot and read key tables.
+- Keep uploaded source videos in Supabase Storage so they remain recoverable alongside database state.
+- Keep the previous production deployment available in Vercel so a bad release can be rolled back quickly from the deployments list.
+- Write down an incident runbook for:
+  - restoring the database
+  - restoring storage
+  - rotating leaked secrets
+  - pausing billing webhooks
+  - redeploying the last known-good release
+
 ## Email security
 
 Supabase handles email verification and password reset token lifecycle for this app, and the auth routes are rate-limited to reduce signup and reset abuse. Before production launch, also configure the sending domain with:
@@ -218,6 +258,20 @@ Supabase handles email verification and password reset token lifecycle for this 
 - DMARC
 
 Start DMARC in monitoring mode first, then tighten enforcement once you trust your deliverability and provider alignment. Do not place secrets, tokens, or internal IDs into email bodies.
+
+## Deployment security
+
+- Production builds now fail if required env vars are missing or if `NEXT_PUBLIC_APP_URL` is not HTTPS.
+- Browser source maps are disabled in production builds.
+- Security headers are enforced in middleware:
+  - `Content-Security-Policy`
+  - `Strict-Transport-Security`
+  - `X-Content-Type-Options`
+  - `X-Frame-Options`
+  - `Referrer-Policy`
+  - `Permissions-Policy`
+- The app does not use wildcard CORS with credentials. Browser-authenticated state changes stay same-origin and are CSRF-protected.
+- Use separate environment-variable sets for development, preview, staging, and production.
 
 ## Security and database operations
 

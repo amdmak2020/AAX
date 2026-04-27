@@ -7,6 +7,7 @@ import { applyRateLimitHeaders, enforceRateLimit, normalizeEmail } from "@/lib/r
 import { getSafeRedirectPath } from "@/lib/security";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUnexpectedFormFields, requestExceedsBytes, singleLineTextSchema } from "@/lib/validation";
+import { sendOperationalAlert } from "@/lib/monitoring";
 
 const signupSchema = z.object({
   name: singleLineTextSchema({ min: 2, max: 80, requiredMessage: "Add your name.", tooLongMessage: "Name is too long." }),
@@ -72,6 +73,12 @@ export async function POST(request: Request) {
   });
 
   if (!ipLimiter.allowed) {
+    await sendOperationalAlert({
+      code: "auth-signup-ip-rate-limited",
+      severity: "warning",
+      summary: "Repeated signup attempts triggered the per-IP limiter.",
+      dedupeKey: request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip") ?? "unknown"
+    });
     return applyRateLimitHeaders(
       NextResponse.redirect(new URL(`/signup?error=${encodeURIComponent("Too many sign-up attempts. Please wait a bit and try again.")}`, request.url), {
         status: 303

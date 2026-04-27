@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { logServerError } from "@/lib/secure-log";
 
 type AuditMetadata = Record<string, unknown>;
 
@@ -35,7 +36,7 @@ export async function logAuditEvent(input: {
       metadata: input.metadata ?? {}
     });
   } catch (error) {
-    console.error("Audit log write failed", error);
+    logServerError("Audit log write failed", { error, targetType: input.targetType, action: input.action, targetId: input.targetId });
   }
 }
 

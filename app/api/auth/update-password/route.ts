@@ -5,6 +5,7 @@ import { verifyCsrfRequest } from "@/lib/csrf";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUnexpectedFormFields, requestExceedsBytes } from "@/lib/validation";
+import { logServerError } from "@/lib/secure-log";
 
 const updatePasswordSchema = z
   .object({
@@ -67,8 +68,9 @@ export async function POST(request: Request) {
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
 
   if (error) {
+    logServerError("Password update failed", { reason: error.message, userId: user?.id ?? null });
     return applyRateLimitHeaders(
-      NextResponse.redirect(new URL(`/update-password?error=${encodeURIComponent(error.message)}`, request.url), { status: 303 }),
+      NextResponse.redirect(new URL(`/update-password?error=${encodeURIComponent("Could not update password right now.")}`, request.url), { status: 303 }),
       { limit: 10, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
     );
   }

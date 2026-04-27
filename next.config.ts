@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
+import { validateProductionBuildEnv } from "./lib/build-env";
+
+validateProductionBuildEnv();
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+  productionBrowserSourceMaps: false,
+  reactStrictMode: true,
   images: {
     remotePatterns: [
       {

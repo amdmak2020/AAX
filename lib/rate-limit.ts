@@ -1,3 +1,5 @@
+import { logServerError } from "@/lib/secure-log";
+
 type RateLimitBucket = {
   count: number;
   resetAt: number;
@@ -153,7 +155,7 @@ export async function takeRateLimitToken(options: RateLimitOptions): Promise<Rat
   try {
     return await takeUpstashRateLimitToken(options, config);
   } catch (error) {
-    console.error("Falling back to in-memory rate limit store", error);
+    logServerError("Falling back to in-memory rate limit store", { error, bucket: options.bucket });
     return takeMemoryRateLimitToken(options);
   }
 }
