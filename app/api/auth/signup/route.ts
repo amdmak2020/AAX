@@ -58,7 +58,7 @@ export async function POST(request: Request) {
 
   if (error) {
     return applyRateLimitHeaders(
-      NextResponse.redirect(new URL(`/signup?error=${encodeURIComponent(error.message)}`, request.url), { status: 303 }),
+      NextResponse.redirect(new URL(`/signup?error=${encodeURIComponent("We couldn't create that account. Double-check the details or try signing in.")}`, request.url), { status: 303 }),
       { limit: 5, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
     );
   }

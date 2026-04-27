@@ -33,6 +33,11 @@ const billingMessages = {
     title: "Lemon Squeezy checkout is not ready yet",
     body: "Add the Lemon Squeezy store ID, store URL, webhook secret, and plan variant IDs to turn on paid checkout."
   },
+  "verify-email": {
+    tone: "border-lemon/20 bg-lemon/10",
+    title: "Verify your email before billing",
+    body: "Confirm your email address before starting or managing a paid plan."
+  },
   failed: {
     tone: "border-coral/20 bg-coral/10",
     title: "Checkout could not start",

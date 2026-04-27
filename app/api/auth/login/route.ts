@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { isEmailVerified } from "@/lib/access-control";
 import { applyRateLimitHeaders, enforceRateLimit, normalizeEmail } from "@/lib/request-security";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSafeRedirectPath } from "@/lib/security";
@@ -41,11 +42,19 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.signInWithPassword({ email: parsed.data.email, password: parsed.data.password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email: parsed.data.email, password: parsed.data.password });
 
   if (error) {
     return applyRateLimitHeaders(
-      NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error.message)}`, request.url), { status: 303 }),
+      NextResponse.redirect(new URL(`/login?error=${encodeURIComponent("We couldn't sign you in with those details.")}`, request.url), { status: 303 }),
+      { limit: 8, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
+    );
+  }
+
+  if (!isEmailVerified(data.user)) {
+    await supabase.auth.signOut();
+    return applyRateLimitHeaders(
+      NextResponse.redirect(new URL(`/check-email?email=${encodeURIComponent(parsed.data.email)}&pending=1`, request.url), { status: 303 }),
       { limit: 8, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
     );
   }

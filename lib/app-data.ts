@@ -1,4 +1,5 @@
 import { planCatalog, type PlanKey } from "@/lib/app-config";
+import { normalizeRole, type AppRole } from "@/lib/access-control";
 import { ensureAccountRecords, normalizeSubscriptionRow } from "@/lib/account-bootstrap";
 import type { BoostJob } from "@/lib/boost-jobs";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -33,6 +34,21 @@ type BoostJobRow = {
   completed_at?: string | null;
 };
 
+type ViewerProfile = {
+  id: string;
+  email: string;
+  full_name: string;
+  role: AppRole;
+  email_confirmed_at: string | null;
+  last_sign_in_at: string | null;
+};
+
+type ViewerWorkspace = {
+  profile: ViewerProfile;
+  subscription: SubscriptionRow;
+  jobs: BoostJob[];
+};
+
 function asPreset(value: string | null | undefined): BoostJob["preset"] {
   return value === "hook-boost" || value === "caption-boost" || value === "retention-boost" || value === "balanced" ? value : "balanced";
 }
@@ -64,10 +80,17 @@ function mapBoostJob(row: BoostJobRow): BoostJob {
   };
 }
 
-export async function getViewerWorkspace() {
+export async function getViewerWorkspace(): Promise<ViewerWorkspace | null> {
   if (!isSupabaseConfigured()) {
     return {
-      profile: { id: "demo-user", email: "creator@example.com", full_name: "Demo Creator", role: "admin" },
+      profile: {
+        id: "demo-user",
+        email: "creator@example.com",
+        full_name: "Demo Creator",
+        role: "admin",
+        email_confirmed_at: new Date().toISOString(),
+        last_sign_in_at: new Date().toISOString()
+      },
       subscription: {
         plan_key: "free" as PlanKey,
         credits_total: planCatalog.free.monthlyCredits,
@@ -106,7 +129,12 @@ export async function getViewerWorkspace() {
   ]);
 
   return {
-    profile: profileResult.data ?? { id: user.id, email: user.email ?? "", full_name: "", role: "user" },
+    profile: {
+      ...(profileResult.data ?? { id: user.id, email: user.email ?? "", full_name: "", role: "user" }),
+      role: normalizeRole((profileResult.data?.role as AppRole | "user" | undefined) ?? "user"),
+      email_confirmed_at: user.email_confirmed_at ?? null,
+      last_sign_in_at: user.last_sign_in_at ?? null
+    } satisfies ViewerProfile,
     subscription:
       subscriptionResult.data
         ? (normalizeSubscriptionRow(user.id, subscriptionResult.data as Record<string, unknown>) satisfies SubscriptionRow)

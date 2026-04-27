@@ -44,10 +44,7 @@ export async function POST(request: Request) {
   });
 
   if (error) {
-    return applyRateLimitHeaders(
-      NextResponse.redirect(new URL(`/forgot-password?error=${encodeURIComponent(error.message)}`, request.url), { status: 303 }),
-      { limit: 5, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
-    );
+    console.error("Password reset request failed", error);
   }
 
   return applyRateLimitHeaders(

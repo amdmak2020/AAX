@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { planCatalog, type PlanKey } from "@/lib/app-config";
+import { isEmailVerified } from "@/lib/access-control";
 import { getViewerWorkspace } from "@/lib/app-data";
 import { getAppUrl, getLemonSqueezyStoreId, getLemonSqueezyVariantId, hasLemonSqueezyCheckoutConfig } from "@/lib/env";
 import { createLemonSqueezyCheckout } from "@/lib/lemonsqueezy";
@@ -19,6 +20,10 @@ export async function POST(request: Request) {
   const workspace = await getViewerWorkspace();
   if (!workspace) {
     return NextResponse.redirect(`${getAppUrl()}/login?next=/app/billing`, { status: 303 });
+  }
+
+  if (!workspace.profile.email || !isEmailVerified({ email_confirmed_at: workspace.profile.email_confirmed_at ?? null })) {
+    return NextResponse.redirect(`${getAppUrl()}/app/billing?checkout=verify-email`, { status: 303 });
   }
 
   const storeId = getLemonSqueezyStoreId();

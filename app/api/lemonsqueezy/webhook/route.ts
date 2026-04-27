@@ -43,6 +43,8 @@ function normalizeStatus(eventName: string | undefined, status: string | null | 
   if (eventName === "subscription_expired") return "expired";
   if (eventName === "subscription_cancelled") return "cancelled";
   if (eventName === "subscription_paused") return "paused";
+  if (eventName === "subscription_payment_failed") return "past_due";
+  if (eventName === "subscription_payment_recovered") return "active";
   if (eventName === "subscription_unpaused" || eventName === "subscription_resumed") return "active";
   return status ?? "active";
 }

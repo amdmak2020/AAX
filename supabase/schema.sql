@@ -1,8 +1,8 @@
 create extension if not exists pgcrypto;
 
-create type public.app_role as enum ('user', 'admin');
+create type public.app_role as enum ('owner', 'admin', 'member', 'viewer');
 create type public.plan_key as enum ('free', 'creator', 'pro', 'business');
-create type public.subscription_status as enum ('trialing', 'active', 'past_due', 'canceled', 'incomplete');
+create type public.subscription_status as enum ('trialing', 'active', 'past_due', 'cancelled', 'expired', 'refunded', 'paused', 'incomplete');
 create type public.boost_job_status as enum ('draft', 'queued', 'processing', 'rendering', 'completed', 'failed');
 create type public.processor_provider_key as enum ('mock', 'n8n');
 create type public.boost_preset_key as enum ('hook-boost', 'caption-boost', 'retention-boost', 'balanced');
@@ -13,7 +13,7 @@ create table public.profiles (
   email text not null,
   full_name text,
   avatar_url text,
-  role app_role not null default 'user',
+  role app_role not null default 'owner',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -36,8 +36,8 @@ create table public.subscriptions (
   stripe_subscription_id text,
   plan_key plan_key not null default 'free',
   status subscription_status not null default 'trialing',
-  credits_total integer not null default 2,
-  credits_used integer not null default 0,
+  credits_total integer not null default 2 check (credits_total >= 0),
+  credits_used integer not null default 0 check (credits_used >= 0 and credits_used <= credits_total),
   current_period_start timestamptz,
   current_period_end timestamptz,
   cancel_at_period_end boolean not null default false,
@@ -57,23 +57,23 @@ create table public.usage_ledger (
 create table public.boost_jobs (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
-  project_name text not null,
+  project_name text not null check (char_length(project_name) <= 120),
   status boost_job_status not null default 'draft',
   preset boost_preset_key not null default 'balanced',
   target_platform target_platform_key not null default 'tiktok',
-  description text,
-  subtitle_style text,
+  description text check (description is null or char_length(description) <= 2000),
+  subtitle_style text check (subtitle_style is null or char_length(subtitle_style) <= 80),
   add_opening_text boolean not null default true,
-  crop_mode text,
-  extra_notes text,
+  crop_mode text check (crop_mode is null or char_length(crop_mode) <= 80),
+  extra_notes text check (extra_notes is null or char_length(extra_notes) <= 2000),
   processor_provider processor_provider_key not null default 'mock',
   external_job_id text,
-  source_video_url text not null,
-  source_storage_path text,
-  source_file_name text,
-  output_video_url text,
-  output_poster_url text,
-  error_message text,
+  source_video_url text not null check (char_length(source_video_url) <= 2048),
+  source_storage_path text check (source_storage_path is null or char_length(source_storage_path) <= 1024),
+  source_file_name text check (source_file_name is null or char_length(source_file_name) <= 255),
+  output_video_url text check (output_video_url is null or char_length(output_video_url) <= 2048),
+  output_poster_url text check (output_poster_url is null or char_length(output_poster_url) <= 2048),
+  error_message text check (error_message is null or char_length(error_message) <= 2000),
   progress integer not null default 0 check (progress >= 0 and progress <= 100),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -93,9 +93,9 @@ create table public.admin_events (
 insert into public.plans (key, name, monthly_credits, max_file_size_mb)
 values
   ('free', 'Free', 2, 150),
-  ('creator', 'Creator', 40, 500),
-  ('pro', 'Pro', 150, 1024),
-  ('business', 'Business', 500, 2048)
+  ('creator', 'Creator', 50, 500),
+  ('pro', 'Pro', 100, 1024),
+  ('business', 'Business', 1000, 2048)
 on conflict (key) do update
 set
   name = excluded.name,
@@ -112,7 +112,7 @@ alter table public.boost_jobs enable row level security;
 alter table public.admin_events enable row level security;
 
 create policy "Users read own profile" on public.profiles for select using (auth.uid() = id);
-create policy "Users update own profile" on public.profiles for update using (auth.uid() = id);
+create policy "Users update own profile" on public.profiles for update using (auth.uid() = id) with check (auth.uid() = id);
 
 create policy "Authenticated users read plans" on public.plans for select to authenticated using (true);
 create policy "Anon users read plans" on public.plans for select to anon using (active = true);
@@ -121,7 +121,7 @@ create policy "Users read own subscription" on public.subscriptions for select u
 create policy "Users read own usage ledger" on public.usage_ledger for select using (auth.uid() = user_id);
 create policy "Users read own boost jobs" on public.boost_jobs for select using (auth.uid() = user_id);
 create policy "Users insert own boost jobs" on public.boost_jobs for insert with check (auth.uid() = user_id);
-create policy "Users update own boost jobs" on public.boost_jobs for update using (auth.uid() = user_id);
+create policy "Users update own boost jobs" on public.boost_jobs for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 insert into storage.buckets (id, name, public)
 values ('source-videos', 'source-videos', true)

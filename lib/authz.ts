@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { hasRole, isEmailVerified, isRecentlyAuthenticated, normalizeRole, type AppRole } from "@/lib/access-control";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function getCurrentUser() {
@@ -25,7 +26,7 @@ export async function getCurrentProfile() {
     id: user.id,
     email: user.email ?? "",
     full_name: data?.full_name ?? user.user_metadata.full_name ?? "",
-    role: data?.role ?? "user"
+    role: normalizeRole(data?.role as AppRole | "user" | undefined)
   };
 }
 
@@ -42,14 +43,27 @@ export async function getCurrentProfileOptional() {
     id: user.id,
     email: user.email ?? "",
     full_name: data?.full_name ?? user.user_metadata.full_name ?? "",
-    role: data?.role ?? "user"
+    role: normalizeRole(data?.role as AppRole | "user" | undefined),
+    email_confirmed_at: user.email_confirmed_at ?? null,
+    last_sign_in_at: user.last_sign_in_at ?? null
   };
 }
 
 export async function requireAdmin() {
+  const user = await requireUser();
   const profile = await getCurrentProfile();
-  if (profile.role !== "admin") {
+
+  if (!hasRole(profile.role, "admin")) {
     redirect("/app");
   }
+
+  if (!isEmailVerified(user)) {
+    redirect("/login?error=verify_admin_email&next=/app/admin");
+  }
+
+  if (!isRecentlyAuthenticated(user)) {
+    redirect("/login?error=admin_reauth_required&next=/app/admin");
+  }
+
   return profile;
 }

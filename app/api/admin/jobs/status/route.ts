@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { hasRole, isEmailVerified, isRecentlyAuthenticated } from "@/lib/access-control";
 import { getCurrentProfileOptional } from "@/lib/authz";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -17,8 +18,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
 
-  if (profile.role !== "admin") {
+  if (!hasRole(profile.role, "admin")) {
     return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+  }
+
+  if (!isEmailVerified(profile) || !isRecentlyAuthenticated(profile)) {
+    return NextResponse.json({ error: "Admin re-authentication required." }, { status: 403 });
   }
 
   const limiter = await enforceRateLimit({

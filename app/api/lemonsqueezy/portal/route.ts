@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isEmailVerified } from "@/lib/access-control";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getAppUrl, getLemonSqueezyStoreUrl, hasLemonSqueezyApiKey } from "@/lib/env";
@@ -12,6 +13,10 @@ export async function POST() {
 
   if (!user) {
     return NextResponse.redirect(`${getAppUrl()}/login?next=/app/billing`, { status: 303 });
+  }
+
+  if (!isEmailVerified(user)) {
+    return NextResponse.redirect(`${getAppUrl()}/app/billing?portal=verify-email`, { status: 303 });
   }
 
   if (!hasLemonSqueezyApiKey()) {
