@@ -1,2 +1,13 @@
-export { alt, contentType, runtime, size } from "@/app/opengraph-image";
-export { default } from "@/app/opengraph-image";
+import OpenGraphImage from "@/app/opengraph-image";
+
+export const runtime = "edge";
+export const alt = "AutoAgentX AI video editor";
+export const size = {
+  width: 1200,
+  height: 630
+};
+export const contentType = "image/png";
+
+export default function TwitterImage() {
+  return OpenGraphImage();
+}
