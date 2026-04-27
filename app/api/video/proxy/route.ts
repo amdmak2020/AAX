@@ -37,7 +37,8 @@ export async function GET(request: Request) {
       limit: 120,
       remaining: limiter.remaining,
       resetAt: limiter.resetAt,
-      retryAfterSeconds: limiter.retryAfterSeconds
+      retryAfterSeconds: limiter.retryAfterSeconds,
+      store: limiter.store
     });
   }
 
@@ -48,7 +49,8 @@ export async function GET(request: Request) {
     return applyRateLimitHeaders(NextResponse.json({ error: "Missing video URL." }, { status: 400 }), {
       limit: 120,
       remaining: limiter.remaining,
-      resetAt: limiter.resetAt
+      resetAt: limiter.resetAt,
+      store: limiter.store
     });
   }
 
@@ -59,7 +61,8 @@ export async function GET(request: Request) {
     return applyRateLimitHeaders(NextResponse.json({ error: "Invalid video URL." }, { status: 400 }), {
       limit: 120,
       remaining: limiter.remaining,
-      resetAt: limiter.resetAt
+      resetAt: limiter.resetAt,
+      store: limiter.store
     });
   }
 
@@ -67,7 +70,8 @@ export async function GET(request: Request) {
     return applyRateLimitHeaders(NextResponse.json({ error: "Video host is not allowed." }, { status: 400 }), {
       limit: 120,
       remaining: limiter.remaining,
-      resetAt: limiter.resetAt
+      resetAt: limiter.resetAt,
+      store: limiter.store
     });
   }
 
@@ -84,7 +88,7 @@ export async function GET(request: Request) {
   if (!upstream.ok && upstream.status !== 206) {
     return applyRateLimitHeaders(
       NextResponse.json({ error: `Could not load video. Upstream responded with ${upstream.status}.` }, { status: upstream.status }),
-      { limit: 120, remaining: limiter.remaining, resetAt: limiter.resetAt }
+      { limit: 120, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
     );
   }
 
@@ -107,6 +111,7 @@ export async function GET(request: Request) {
   }) as NextResponse, {
     limit: 120,
     remaining: limiter.remaining,
-    resetAt: limiter.resetAt
+    resetAt: limiter.resetAt,
+    store: limiter.store
   });
 }

@@ -141,7 +141,7 @@ export async function POST(request: Request) {
           "You have submitted a lot of boost jobs in a short window. Give it a minute and try again.",
           429
         ),
-        { limit: 12, remaining: limiter.remaining, resetAt: limiter.resetAt, retryAfterSeconds: limiter.retryAfterSeconds }
+        { limit: 12, remaining: limiter.remaining, resetAt: limiter.resetAt, retryAfterSeconds: limiter.retryAfterSeconds, store: limiter.store }
       );
     }
 
@@ -158,7 +158,7 @@ export async function POST(request: Request) {
     if (!usageBypassed && subscription.credits_used >= subscription.credits_total) {
       return applyRateLimitHeaders(
         respondWithCreateError(request, "no_credits", "No boosts remaining on the current plan.", 402),
-        { limit: 12, remaining: limiter.remaining, resetAt: limiter.resetAt }
+        { limit: 12, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
       );
     }
 
@@ -167,7 +167,7 @@ export async function POST(request: Request) {
     if (useFileSource && file.size > uploadLimitMb * 1024 * 1024) {
       return applyRateLimitHeaders(
         respondWithCreateError(request, "file_too_large", `Uploads are currently limited to ${uploadLimitMb}MB.`, 400),
-        { limit: 12, remaining: limiter.remaining, resetAt: limiter.resetAt }
+        { limit: 12, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
       );
     }
 
@@ -198,7 +198,8 @@ export async function POST(request: Request) {
       return applyRateLimitHeaders(respondWithCreateError(request, "generic", insert.error.message, 500), {
         limit: 12,
         remaining: limiter.remaining,
-        resetAt: limiter.resetAt
+        resetAt: limiter.resetAt,
+        store: limiter.store
       });
     }
 
@@ -213,7 +214,8 @@ export async function POST(request: Request) {
       return applyRateLimitHeaders(respondWithCreateError(request, "usage_update_failed", message, 500), {
         limit: 12,
         remaining: limiter.remaining,
-        resetAt: limiter.resetAt
+        resetAt: limiter.resetAt,
+        store: limiter.store
       });
     }
 
@@ -228,7 +230,8 @@ export async function POST(request: Request) {
       return applyRateLimitHeaders(respondWithCreateError(request, "usage_update_failed", usageLedgerInsert.error.message, 500), {
         limit: 12,
         remaining: limiter.remaining,
-        resetAt: limiter.resetAt
+        resetAt: limiter.resetAt,
+        store: limiter.store
       });
     }
 
@@ -266,7 +269,8 @@ export async function POST(request: Request) {
     return applyRateLimitHeaders(NextResponse.redirect(new URL(`/app/jobs/${jobId}`, request.url), { status: 303 }), {
       limit: 12,
       remaining: limiter.remaining,
-      resetAt: limiter.resetAt
+      resetAt: limiter.resetAt,
+      store: limiter.store
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Boost job creation failed.";

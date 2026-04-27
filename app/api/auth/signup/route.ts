@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       NextResponse.redirect(new URL(`/signup?error=${encodeURIComponent("Too many sign-up attempts. Please wait a bit and try again.")}`, request.url), {
         status: 303
       }),
-      { limit: 5, remaining: limiter.remaining, resetAt: limiter.resetAt, retryAfterSeconds: limiter.retryAfterSeconds }
+      { limit: 5, remaining: limiter.remaining, resetAt: limiter.resetAt, retryAfterSeconds: limiter.retryAfterSeconds, store: limiter.store }
     );
   }
 
@@ -59,12 +59,12 @@ export async function POST(request: Request) {
   if (error) {
     return applyRateLimitHeaders(
       NextResponse.redirect(new URL(`/signup?error=${encodeURIComponent(error.message)}`, request.url), { status: 303 }),
-      { limit: 5, remaining: limiter.remaining, resetAt: limiter.resetAt }
+      { limit: 5, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
     );
   }
 
   return applyRateLimitHeaders(
     NextResponse.redirect(new URL(`/check-email?email=${encodeURIComponent(parsed.data.email)}`, request.url), { status: 303 }),
-    { limit: 5, remaining: limiter.remaining, resetAt: limiter.resetAt }
+    { limit: 5, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
   );
 }

@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       NextResponse.redirect(new URL(`/update-password?error=${encodeURIComponent("Too many password update attempts. Please wait a little and try again.")}`, request.url), {
         status: 303
       }),
-      { limit: 10, remaining: limiter.remaining, resetAt: limiter.resetAt, retryAfterSeconds: limiter.retryAfterSeconds }
+      { limit: 10, remaining: limiter.remaining, resetAt: limiter.resetAt, retryAfterSeconds: limiter.retryAfterSeconds, store: limiter.store }
     );
   }
 
@@ -48,13 +48,14 @@ export async function POST(request: Request) {
   if (error) {
     return applyRateLimitHeaders(
       NextResponse.redirect(new URL(`/update-password?error=${encodeURIComponent(error.message)}`, request.url), { status: 303 }),
-      { limit: 10, remaining: limiter.remaining, resetAt: limiter.resetAt }
+      { limit: 10, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
     );
   }
 
   return applyRateLimitHeaders(NextResponse.redirect(new URL("/login?reset=success", request.url), { status: 303 }), {
     limit: 10,
     remaining: limiter.remaining,
-    resetAt: limiter.resetAt
+    resetAt: limiter.resetAt,
+    store: limiter.store
   });
 }

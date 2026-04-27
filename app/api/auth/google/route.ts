@@ -19,7 +19,7 @@ export async function POST(request: Request) {
       NextResponse.redirect(new URL(`/login?error=${encodeURIComponent("Too many sign-in attempts. Please try again shortly.")}`, request.url), {
         status: 303
       }),
-      { limit: 12, remaining: limiter.remaining, resetAt: limiter.resetAt, retryAfterSeconds: limiter.retryAfterSeconds }
+      { limit: 12, remaining: limiter.remaining, resetAt: limiter.resetAt, retryAfterSeconds: limiter.retryAfterSeconds, store: limiter.store }
     );
   }
 
@@ -39,13 +39,15 @@ export async function POST(request: Request) {
     return applyRateLimitHeaders(NextResponse.json({ error: error?.message ?? "Could not start Google sign in." }, { status: 400 }), {
       limit: 12,
       remaining: limiter.remaining,
-      resetAt: limiter.resetAt
+      resetAt: limiter.resetAt,
+      store: limiter.store
     });
   }
 
   return applyRateLimitHeaders(NextResponse.redirect(data.url, { status: 303 }), {
     limit: 12,
     remaining: limiter.remaining,
-    resetAt: limiter.resetAt
+    resetAt: limiter.resetAt,
+    store: limiter.store
   });
 }

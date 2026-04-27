@@ -34,7 +34,7 @@ export async function POST(request: Request) {
         new URL(`/forgot-password?error=${encodeURIComponent("Too many reset requests. Please wait a bit before trying again.")}`, request.url),
         { status: 303 }
       ),
-      { limit: 5, remaining: limiter.remaining, resetAt: limiter.resetAt, retryAfterSeconds: limiter.retryAfterSeconds }
+      { limit: 5, remaining: limiter.remaining, resetAt: limiter.resetAt, retryAfterSeconds: limiter.retryAfterSeconds, store: limiter.store }
     );
   }
 
@@ -46,12 +46,12 @@ export async function POST(request: Request) {
   if (error) {
     return applyRateLimitHeaders(
       NextResponse.redirect(new URL(`/forgot-password?error=${encodeURIComponent(error.message)}`, request.url), { status: 303 }),
-      { limit: 5, remaining: limiter.remaining, resetAt: limiter.resetAt }
+      { limit: 5, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
     );
   }
 
   return applyRateLimitHeaders(
     NextResponse.redirect(new URL(`/forgot-password?sent=1&email=${encodeURIComponent(parsed.data.email)}`, request.url), { status: 303 }),
-    { limit: 5, remaining: limiter.remaining, resetAt: limiter.resetAt }
+    { limit: 5, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
   );
 }

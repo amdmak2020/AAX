@@ -34,7 +34,8 @@ export async function POST(request: Request) {
       limit: 60,
       remaining: limiter.remaining,
       resetAt: limiter.resetAt,
-      retryAfterSeconds: limiter.retryAfterSeconds
+      retryAfterSeconds: limiter.retryAfterSeconds,
+      store: limiter.store
     });
   }
 
@@ -45,7 +46,8 @@ export async function POST(request: Request) {
     return applyRateLimitHeaders(NextResponse.json({ error: "Invalid admin status payload." }, { status: 400 }), {
       limit: 60,
       remaining: limiter.remaining,
-      resetAt: limiter.resetAt
+      resetAt: limiter.resetAt,
+      store: limiter.store
     });
   }
 
@@ -65,13 +67,15 @@ export async function POST(request: Request) {
     return applyRateLimitHeaders(NextResponse.json({ error: error.message }, { status: 500 }), {
       limit: 60,
       remaining: limiter.remaining,
-      resetAt: limiter.resetAt
+      resetAt: limiter.resetAt,
+      store: limiter.store
     });
   }
 
   return applyRateLimitHeaders(NextResponse.json({ ok: true }), {
     limit: 60,
     remaining: limiter.remaining,
-    resetAt: limiter.resetAt
+    resetAt: limiter.resetAt,
+    store: limiter.store
   });
 }
