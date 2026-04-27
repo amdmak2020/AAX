@@ -1,6 +1,5 @@
 import { cookies } from "next/headers";
 import { getAppUrl } from "@/lib/env";
-import { secureCompare } from "@/lib/security";
 
 export const csrfCookieName = "__Host-aax-csrf";
 
@@ -33,6 +32,19 @@ function isSameOriginRequest(request: Request) {
   return false;
 }
 
+function secureCompareCsrf(secret: string, incoming: string) {
+  if (secret.length !== incoming.length) {
+    return false;
+  }
+
+  let mismatch = 0;
+  for (let index = 0; index < secret.length; index += 1) {
+    mismatch |= secret.charCodeAt(index) ^ incoming.charCodeAt(index);
+  }
+
+  return mismatch === 0;
+}
+
 export async function getCsrfTokenForRender() {
   const cookieStore = await cookies();
   return cookieStore.get(csrfCookieName)?.value ?? "";
@@ -47,7 +59,7 @@ export async function verifyCsrfRequest(request: Request, explicitToken?: string
   const cookieToken = cookieStore.get(csrfCookieName)?.value ?? "";
   const requestToken = explicitToken ?? request.headers.get("x-csrf-token") ?? "";
 
-  if (!cookieToken || !requestToken || !secureCompare(cookieToken, requestToken)) {
+  if (!cookieToken || !requestToken || !secureCompareCsrf(cookieToken, requestToken)) {
     return { ok: false as const, error: "CSRF validation failed." };
   }
 
