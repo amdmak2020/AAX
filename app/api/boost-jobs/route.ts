@@ -6,6 +6,7 @@ import { ensureAccountRecords, updateSubscriptionUsage } from "@/lib/account-boo
 import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
 import { verifyCsrfRequest } from "@/lib/csrf";
 import { bypassUsageLimits, getAppUrl } from "@/lib/env";
+import { reserveIdempotencyKey } from "@/lib/idempotency";
 import { getProcessorProvider } from "@/lib/processor/provider";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { uploadSourceVideo } from "@/lib/storage/supabase-storage";
@@ -15,7 +16,8 @@ import { getUnexpectedFormFields, multilineTextSchema, optionalHttpUrlSchema, re
 
 const createBoostSchema = z.object({
   description: multilineTextSchema({ min: 1, max: 600, requiredMessage: "Add a short description before submitting.", tooLongMessage: "Keep the description under 600 characters." }),
-  sourceUrl: optionalHttpUrlSchema.optional()
+  sourceUrl: optionalHttpUrlSchema.optional(),
+  idempotencyKey: z.string().trim().uuid("Refresh and try again before submitting.")
 }).strict();
 
 const DEFAULT_PRESET = "balanced" as const;
@@ -109,7 +111,7 @@ export async function POST(request: Request) {
       return respondWithCreateError(request, "csrf_failed", "Your session expired. Refresh and try again.", 403);
     }
 
-    const unexpectedFields = getUnexpectedFormFields(formData, ["sourceFile", "sourceUrl", "description", "csrfToken"]);
+    const unexpectedFields = getUnexpectedFormFields(formData, ["sourceFile", "sourceUrl", "description", "csrfToken", "idempotencyKey"]);
     if (unexpectedFields.length > 0) {
       return respondWithCreateError(request, "unexpected_fields", "Unexpected fields were submitted.", 400);
     }
@@ -118,7 +120,8 @@ export async function POST(request: Request) {
 
     const parsed = createBoostSchema.safeParse({
       description: formData.get("description")?.toString(),
-      sourceUrl: formData.get("sourceUrl")?.toString().trim()
+      sourceUrl: formData.get("sourceUrl")?.toString().trim(),
+      idempotencyKey: formData.get("idempotencyKey")?.toString()
     });
 
     if (!parsed.success) {
@@ -187,6 +190,18 @@ export async function POST(request: Request) {
       );
     }
 
+    const reservation = await reserveIdempotencyKey({
+      scope: `boost-job:${user.id}`,
+      key: parsed.data.idempotencyKey,
+      ttlSeconds: 60 * 60
+    });
+    if (!reservation.reserved) {
+      return applyRateLimitHeaders(
+        respondWithCreateError(request, "duplicate_submission", "That clip was already submitted. Refresh before trying again.", 409),
+        { limit: 12, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
+      );
+    }
+
     const uploadLimitMb = Math.min(plan.maxFileSizeMb, sourceUploadMaxMb);
 
     if (useFileSource && file.size > uploadLimitMb * 1024 * 1024) {
@@ -238,7 +253,8 @@ export async function POST(request: Request) {
     });
 
     if (insert.error) {
-      return applyRateLimitHeaders(respondWithCreateError(request, "generic", insert.error.message, 500), {
+      console.error("Boost job insert failed", insert.error);
+      return applyRateLimitHeaders(respondWithCreateError(request, "generic", "We couldn't save that submission right now.", 500), {
         limit: 12,
         remaining: limiter.remaining,
         resetAt: limiter.resetAt,
@@ -264,8 +280,8 @@ export async function POST(request: Request) {
         nextCreditsUsed: subscription.credits_used + 1
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not update credit usage.";
-      return applyRateLimitHeaders(respondWithCreateError(request, "usage_update_failed", message, 500), {
+      console.error("Boost job usage update failed", error);
+      return applyRateLimitHeaders(respondWithCreateError(request, "usage_update_failed", "We couldn't reserve a credit for that clip.", 500), {
         limit: 12,
         remaining: limiter.remaining,
         resetAt: limiter.resetAt,
@@ -281,7 +297,8 @@ export async function POST(request: Request) {
     });
 
     if (usageLedgerInsert.error) {
-      return applyRateLimitHeaders(respondWithCreateError(request, "usage_update_failed", usageLedgerInsert.error.message, 500), {
+      console.error("Usage ledger insert failed", usageLedgerInsert.error);
+      return applyRateLimitHeaders(respondWithCreateError(request, "usage_update_failed", "We couldn't finalize the credit reservation.", 500), {
         limit: 12,
         remaining: limiter.remaining,
         resetAt: limiter.resetAt,
@@ -327,7 +344,7 @@ export async function POST(request: Request) {
       store: limiter.store
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Boost job creation failed.";
-    return respondWithCreateError(request, "generic", message, 500);
+    console.error("Boost job creation failed", error);
+    return respondWithCreateError(request, "generic", "The boost did not start. Please try again.", 500);
   }
 }

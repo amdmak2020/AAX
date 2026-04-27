@@ -2,6 +2,7 @@ import { currentAccount } from "@/lib/account";
 import { mockJobs, type JobMode, type JobStatus, type VideoJob } from "@/lib/jobs";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { sanitizeMultilineText, sanitizeSingleLineText } from "@/lib/validation";
 
 type JobRow = {
   id: string;
@@ -21,7 +22,7 @@ type JobRow = {
 function mapJob(row: JobRow): VideoJob {
   return {
     id: row.id,
-    title: row.title,
+    title: sanitizeSingleLineText(row.title).slice(0, 160) || "Boosted clip",
     mode: row.mode,
     status: row.status,
     createdAt: row.created_at,
@@ -31,7 +32,7 @@ function mapJob(row: JobRow): VideoJob {
     voice: row.voice,
     credits: row.credits_reserved,
     outputUrl: row.output_asset_path ?? undefined,
-    error: row.error_message ?? undefined
+    error: row.error_message ? sanitizeMultilineText(row.error_message).slice(0, 600) : undefined
   };
 }
 
@@ -70,8 +71,8 @@ export async function getCurrentAppData() {
 
     return {
       account: {
-        name: profile?.full_name ?? user.email ?? currentAccount.name,
-        email: profile?.email ?? user.email ?? currentAccount.email,
+        email: sanitizeSingleLineText(profile?.email ?? user.email ?? currentAccount.email).slice(0, 320),
+        name: sanitizeSingleLineText(profile?.full_name ?? user.email ?? currentAccount.name).slice(0, 120),
         plan: subscription?.plan ?? "Free",
         creditsUsed: subscription?.credits_used ?? 0,
         creditsTotal: subscription?.credits_total ?? 3,

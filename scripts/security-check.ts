@@ -43,10 +43,16 @@ const fresh = new Date(Date.now() - 30 * 60 * 1000).toISOString();
 assert.equal(isRecentlyAuthenticated({ last_sign_in_at: stale }), false, "stale sessions should fail elevated checks");
 assert.equal(isRecentlyAuthenticated({ last_sign_in_at: fresh }), true, "fresh sessions should pass elevated checks");
 assert.equal(sanitizeSingleLineText("  hello\u0000   world  "), "hello world", "single-line sanitization should remove control chars");
+assert.equal(sanitizeSingleLineText("<script>alert(1)</script> hello"), "scriptalert(1)/script hello", "single-line sanitization should strip markup delimiters");
 assert.equal(
   sanitizeMultilineText("line 1\r\n\r\n\r\nline\u0007 2"),
   "line 1\n\nline  2",
   "multiline sanitization should normalize line endings and strip control chars"
+);
+assert.equal(
+  sanitizeMultilineText("hello\u202E\n<script>world</script>"),
+  "hello\nscriptworld/script",
+  "multiline sanitization should strip bidi controls and markup delimiters"
 );
 assert.equal(
   normalizeHttpUrl("https://example.com/path?q=1#fragment"),

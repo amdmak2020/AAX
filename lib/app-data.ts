@@ -5,6 +5,7 @@ import type { BoostJob } from "@/lib/boost-jobs";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
+import { sanitizeMultilineText, sanitizeSingleLineText } from "@/lib/validation";
 
 type SubscriptionRow = {
   plan_key: PlanKey;
@@ -61,7 +62,7 @@ function mapBoostJob(row: BoostJobRow): BoostJob {
   return {
     id: row.id,
     userId: row.user_id,
-    projectName: row.title,
+    projectName: sanitizeSingleLineText(row.title).slice(0, 160) || "Boosted clip",
     status: row.status,
     preset: asPreset(row.style),
     targetPlatform: asTargetPlatform(row.voice),
@@ -72,7 +73,7 @@ function mapBoostJob(row: BoostJobRow): BoostJob {
     sourceFileName: null,
     outputVideoUrl: row.output_asset_path,
     outputPosterUrl: null,
-    errorMessage: row.error_message,
+    errorMessage: row.error_message ? sanitizeMultilineText(row.error_message).slice(0, 600) : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     completedAt: row.completed_at ?? null,
@@ -131,6 +132,8 @@ export async function getViewerWorkspace(): Promise<ViewerWorkspace | null> {
   return {
     profile: {
       ...(profileResult.data ?? { id: user.id, email: user.email ?? "", full_name: "", role: "user" }),
+      email: sanitizeSingleLineText(profileResult.data?.email ?? user.email ?? "").slice(0, 320),
+      full_name: sanitizeSingleLineText(profileResult.data?.full_name ?? "").slice(0, 120),
       role: normalizeRole((profileResult.data?.role as AppRole | "user" | undefined) ?? "user"),
       email_confirmed_at: user.email_confirmed_at ?? null,
       last_sign_in_at: user.last_sign_in_at ?? null

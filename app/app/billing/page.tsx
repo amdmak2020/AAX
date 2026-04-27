@@ -44,6 +44,11 @@ const billingMessages = {
     title: "Refresh and try again",
     body: "Your billing session expired before the request was sent."
   },
+  "already-submitted": {
+    tone: "border-lemon/20 bg-lemon/10",
+    title: "That checkout was already started",
+    body: "We blocked a duplicate billing request so you do not accidentally create the same checkout twice."
+  },
   failed: {
     tone: "border-coral/20 bg-coral/10",
     title: "Checkout could not start",

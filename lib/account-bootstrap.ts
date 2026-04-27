@@ -8,11 +8,27 @@ export type SubscriptionSnapshot = {
   plan_key: PlanKey;
   credits_total: number;
   credits_used: number;
-  status: string;
+  status: SubscriptionStatus;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   current_period_end: string | null;
 };
+
+export type SubscriptionStatus = "free" | "trialing" | "active" | "past_due" | "cancelled" | "expired" | "refunded" | "paused";
+
+function normalizeSubscriptionStatus(input: unknown, planKey: PlanKey): SubscriptionStatus {
+  const normalized = typeof input === "string" ? input.toLowerCase().trim() : "";
+
+  if (normalized === "trialing") return "trialing";
+  if (normalized === "active") return "active";
+  if (normalized === "past_due" || normalized === "past-due" || normalized === "unpaid") return "past_due";
+  if (normalized === "cancelled" || normalized === "canceled") return "cancelled";
+  if (normalized === "expired") return "expired";
+  if (normalized === "refunded") return "refunded";
+  if (normalized === "paused") return "paused";
+
+  return planKey === "free" ? "free" : "trialing";
+}
 
 function makeFreeSubscriptionSnapshot(userId: string): SubscriptionSnapshot {
   return {
@@ -21,7 +37,7 @@ function makeFreeSubscriptionSnapshot(userId: string): SubscriptionSnapshot {
     plan_key: "free",
     credits_total: planCatalog.free.monthlyCredits,
     credits_used: 0,
-    status: "trialing",
+    status: "free",
     stripe_customer_id: null,
     stripe_subscription_id: null,
     current_period_end: null
@@ -43,7 +59,7 @@ export function normalizeSubscriptionRow(userId: string, row: Record<string, unk
     plan_key: planKey,
     credits_total: creditsTotal,
     credits_used: creditsUsed,
-    status: typeof row.status === "string" ? row.status : "trialing",
+    status: normalizeSubscriptionStatus(row.status, planKey),
     stripe_customer_id: typeof row.stripe_customer_id === "string" ? row.stripe_customer_id : null,
     stripe_subscription_id: typeof row.stripe_subscription_id === "string" ? row.stripe_subscription_id : null,
     current_period_end: typeof row.current_period_end === "string" ? row.current_period_end : null
@@ -74,7 +90,7 @@ export async function updateSubscriptionPlan(params: {
   customerId: string | null;
   subscriptionId: string | null;
   planKey: PlanKey;
-  status: string;
+  status: SubscriptionStatus;
   creditsTotal: number;
   creditsUsed?: number;
   currentPeriodEnd: string | null;

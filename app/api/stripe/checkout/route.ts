@@ -1,18 +1,46 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { verifyCsrfRequest } from "@/lib/csrf";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getAppUrl, getStripePriceId, isStripeConfigured } from "@/lib/env";
 import { getStripe } from "@/lib/stripe";
-import { planCatalog, type PlanKey } from "@/lib/app-config";
+import { type PlanKey } from "@/lib/app-config";
+import { getUnexpectedFormFields, requestExceedsBytes } from "@/lib/validation";
+
+const maxStripeCheckoutRequestBytes = 16 * 1024;
+const stripeCheckoutSchema = z.object({
+  priceId: z.string().trim().min(1).max(120),
+  planKey: z.enum(["creator", "pro", "business"])
+}).strict();
 
 export async function POST(request: Request) {
-  const formData = await request.formData();
-  const priceId = formData.get("priceId")?.toString();
-  const planKey = formData.get("planKey")?.toString() as Exclude<PlanKey, "free"> | null;
+  if (requestExceedsBytes(request, maxStripeCheckoutRequestBytes)) {
+    return NextResponse.json({ error: "Checkout payload is too large." }, { status: 413 });
+  }
 
-  if (!priceId || !planKey || !(planKey in planCatalog)) {
+  const formData = await request.formData();
+  const csrfCheck = await verifyCsrfRequest(request, formData.get("csrfToken")?.toString() ?? null);
+  if (!csrfCheck.ok) {
+    return NextResponse.json({ error: "CSRF validation failed." }, { status: 403 });
+  }
+
+  const unexpectedFields = getUnexpectedFormFields(formData, ["priceId", "planKey", "csrfToken"]);
+  if (unexpectedFields.length > 0) {
+    return NextResponse.json({ error: "Unexpected checkout fields." }, { status: 400 });
+  }
+
+  const parsed = stripeCheckoutSchema.safeParse({
+    priceId: formData.get("priceId")?.toString(),
+    planKey: formData.get("planKey")?.toString()
+  });
+
+  if (!parsed.success) {
     return NextResponse.json({ error: "Missing plan checkout configuration" }, { status: 400 });
   }
+
+  const priceId = parsed.data.priceId;
+  const planKey = parsed.data.planKey as Exclude<PlanKey, "free">;
 
   if (!isStripeConfigured() || getStripePriceId(planKey) !== priceId) {
     return NextResponse.redirect(`${getAppUrl()}/app/billing?checkout=missing-configuration`, { status: 303 });

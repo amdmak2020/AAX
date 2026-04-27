@@ -1,9 +1,16 @@
 import { z } from "zod";
 
 const disallowedControlChars = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
+const disallowedBidiChars = /[\u202A-\u202E\u2066-\u2069]/g;
+const markupDelimiters = /[<>]/g;
 
 export function sanitizeSingleLineText(input: string) {
-  return input.replace(disallowedControlChars, " ").replace(/\s+/g, " ").trim();
+  return input
+    .replace(disallowedControlChars, " ")
+    .replace(disallowedBidiChars, "")
+    .replace(markupDelimiters, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function sanitizeMultilineText(input: string) {
@@ -11,6 +18,8 @@ export function sanitizeMultilineText(input: string) {
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
     .replace(disallowedControlChars, " ")
+    .replace(disallowedBidiChars, "")
+    .replace(markupDelimiters, "")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();

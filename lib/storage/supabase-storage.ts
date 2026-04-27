@@ -1,4 +1,5 @@
 import { sanitizeFileName } from "@/lib/utils";
+import { sanitizeSingleLineText } from "@/lib/validation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const SOURCE_VIDEOS_BUCKET = "source-videos";
@@ -56,6 +57,6 @@ export async function uploadSourceVideo(params: {
   return {
     path: filePath,
     publicUrl: data.publicUrl,
-    fileName: params.file.name
+    fileName: sanitizeSingleLineText(params.file.name).slice(0, 255)
   };
 }

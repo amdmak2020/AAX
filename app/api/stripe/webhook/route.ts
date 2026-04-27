@@ -43,7 +43,18 @@ async function upsertSubscriptionFromStripeSubscription(subscription: Stripe.Sub
     customerId,
     subscriptionId: subscription.id,
     planKey,
-    status: subscription.status === "active" ? "active" : subscription.status === "trialing" ? "trialing" : subscription.status === "past_due" ? "past_due" : subscription.status === "incomplete" ? "incomplete" : "canceled",
+    status:
+      subscription.status === "active"
+        ? "active"
+        : subscription.status === "trialing"
+          ? "trialing"
+          : subscription.status === "past_due" || subscription.status === "unpaid"
+            ? "past_due"
+            : subscription.status === "canceled"
+              ? "cancelled"
+              : subscription.status === "incomplete"
+                ? "trialing"
+                : "expired",
     creditsTotal: plan.monthlyCredits,
     creditsUsed: 0,
     currentPeriodEnd: subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : null,

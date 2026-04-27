@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { UploadCloud, Video } from "lucide-react";
+import { sanitizeSingleLineText } from "@/lib/validation";
 
 export function FileUploadDropzone({
   name,
@@ -29,7 +30,7 @@ export function FileUploadDropzone({
     }
 
     setError(null);
-    setFileName(file.name);
+    setFileName(sanitizeSingleLineText(file.name).slice(0, 255));
   };
 
   return (

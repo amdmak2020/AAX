@@ -6,11 +6,13 @@ import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
 import { getViewerWorkspace } from "@/lib/app-data";
 import { verifyCsrfRequest } from "@/lib/csrf";
 import { getAppUrl, getLemonSqueezyStoreId, getLemonSqueezyVariantId, hasLemonSqueezyCheckoutConfig } from "@/lib/env";
+import { reserveIdempotencyKey } from "@/lib/idempotency";
 import { createLemonSqueezyCheckout } from "@/lib/lemonsqueezy";
 import { getUnexpectedFormFields, requestExceedsBytes } from "@/lib/validation";
 
 const checkoutSchema = z.object({
-  planKey: z.enum(["creator", "pro", "business"])
+  planKey: z.enum(["creator", "pro", "business"]),
+  idempotencyKey: z.string().trim().uuid()
 }).strict();
 const maxCheckoutRequestBytes = 16 * 1024;
 
@@ -25,13 +27,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "CSRF validation failed." }, { status: 403 });
   }
 
-  const unexpectedFields = getUnexpectedFormFields(formData, ["planKey", "csrfToken"]);
+  const unexpectedFields = getUnexpectedFormFields(formData, ["planKey", "csrfToken", "idempotencyKey"]);
   if (unexpectedFields.length > 0) {
     return NextResponse.json({ error: "Unexpected checkout fields." }, { status: 400 });
   }
 
   const parsed = checkoutSchema.safeParse({
-    planKey: formData.get("planKey")?.toString()
+    planKey: formData.get("planKey")?.toString(),
+    idempotencyKey: formData.get("idempotencyKey")?.toString()
   });
 
   if (!parsed.success) {
@@ -51,6 +54,15 @@ export async function POST(request: Request) {
 
   if (!workspace.profile.email || !isEmailVerified({ email_confirmed_at: workspace.profile.email_confirmed_at ?? null })) {
     return NextResponse.redirect(`${getAppUrl()}/app/billing?checkout=verify-email`, { status: 303 });
+  }
+
+  const reservation = await reserveIdempotencyKey({
+    scope: `billing-checkout:${workspace.profile.id}`,
+    key: parsed.data.idempotencyKey,
+    ttlSeconds: 15 * 60
+  });
+  if (!reservation.reserved) {
+    return NextResponse.redirect(`${getAppUrl()}/app/billing?checkout=already-submitted`, { status: 303 });
   }
 
   const storeId = getLemonSqueezyStoreId();

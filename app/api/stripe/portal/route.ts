@@ -1,10 +1,29 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { verifyCsrfRequest } from "@/lib/csrf";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getAppUrl, isStripeConfigured } from "@/lib/env";
 import { getStripe } from "@/lib/stripe";
+import { getUnexpectedFormFields, requestExceedsBytes } from "@/lib/validation";
 
-export async function POST() {
+const maxStripePortalRequestBytes = 8 * 1024;
+
+export async function POST(request: Request) {
+  if (requestExceedsBytes(request, maxStripePortalRequestBytes)) {
+    return NextResponse.json({ error: "Portal payload is too large." }, { status: 413 });
+  }
+
+  const formData = await request.formData();
+  const csrfCheck = await verifyCsrfRequest(request, formData.get("csrfToken")?.toString() ?? null);
+  if (!csrfCheck.ok) {
+    return NextResponse.redirect(`${getAppUrl()}/app/billing?portal=csrf-failed`, { status: 303 });
+  }
+
+  const unexpectedFields = getUnexpectedFormFields(formData, ["csrfToken"]);
+  if (unexpectedFields.length > 0) {
+    return NextResponse.redirect(`${getAppUrl()}/app/billing?portal=missing-configuration`, { status: 303 });
+  }
+
   const supabase = await createSupabaseServerClient();
   const {
     data: { user }
