@@ -6,7 +6,7 @@ import { statusLabels } from "@/lib/jobs";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { secureCompare } from "@/lib/security";
 import { optionalHttpUrlSchema, requestExceedsBytes, singleLineTextSchema, strictUuidSchema } from "@/lib/validation";
-import { reserveWebhookDelivery } from "@/lib/webhook-idempotency";
+import { finalizePersistentWebhookEvent, reservePersistentWebhookEvent } from "@/lib/webhook-ledger";
 
 const maxWebhookBytes = 64 * 1024;
 const n8nWebhookSchema = z
@@ -24,6 +24,8 @@ const n8nWebhookSchema = z
   .strict();
 
 export async function POST(request: Request) {
+  let ledgerId: string | null = null;
+
   if (requestExceedsBytes(request, maxWebhookBytes)) {
     return NextResponse.json({ error: "Webhook payload is too large." }, { status: 413 });
   }
@@ -36,11 +38,12 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
-  const reservation = await reserveWebhookDelivery({
+  const reservation = await reservePersistentWebhookEvent({
     source: "n8n",
     payload: JSON.stringify(body ?? {}),
     ttlSeconds: 7 * 24 * 60 * 60
   });
+  ledgerId = "ledgerId" in reservation ? reservation.ledgerId ?? null : null;
   if (!reservation.reserved) {
     return NextResponse.json({ received: true, duplicate: true, store: reservation.store });
   }
@@ -65,7 +68,14 @@ export async function POST(request: Request) {
       .eq("id", parsed.data.jobId);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("n8n webhook update failed", error);
+      await finalizePersistentWebhookEvent({
+        ledgerId,
+        status: "failed",
+        metadata: { provider: "n8n", job_id: parsed.data.jobId, status: parsed.data.status },
+        errorMessage: error.message
+      });
+      return NextResponse.json({ error: "Webhook processing failed." }, { status: 500 });
     }
   }
 
@@ -78,6 +88,17 @@ export async function POST(request: Request) {
       execution_id: parsed.data.executionId ?? parsed.data.n8n_execution_id ?? null,
       store: reservation.store
     })
+  });
+
+  await finalizePersistentWebhookEvent({
+    ledgerId,
+    status: "processed",
+    metadata: {
+      provider: "n8n",
+      job_id: parsed.data.jobId,
+      status: parsed.data.status,
+      execution_id: parsed.data.executionId ?? parsed.data.n8n_execution_id ?? null
+    }
   });
 
   return NextResponse.json({ ok: true });

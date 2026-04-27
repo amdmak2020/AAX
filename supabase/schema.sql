@@ -90,6 +90,23 @@ create table public.admin_events (
   created_at timestamptz not null default now()
 );
 
+create table public.webhook_events (
+  id uuid primary key default gen_random_uuid(),
+  provider text not null check (char_length(provider) between 2 and 40),
+  dedupe_key text not null check (char_length(dedupe_key) between 16 and 255),
+  event_id text check (event_id is null or char_length(event_id) <= 255),
+  event_name text check (event_name is null or char_length(event_name) <= 120),
+  target_user_id uuid references public.profiles(id) on delete set null,
+  payload_hash text not null check (char_length(payload_hash) = 64),
+  status text not null default 'received' check (status in ('received', 'processing', 'processed', 'failed', 'skipped')),
+  processing_attempts integer not null default 1 check (processing_attempts >= 1),
+  metadata jsonb not null default '{}'::jsonb,
+  last_error text check (last_error is null or char_length(last_error) <= 1000),
+  received_at timestamptz not null default now(),
+  last_received_at timestamptz not null default now(),
+  processed_at timestamptz
+);
+
 insert into public.plans (key, name, monthly_credits, max_file_size_mb)
 values
   ('free', 'Free', 2, 150),
@@ -110,6 +127,7 @@ alter table public.subscriptions enable row level security;
 alter table public.usage_ledger enable row level security;
 alter table public.boost_jobs enable row level security;
 alter table public.admin_events enable row level security;
+alter table public.webhook_events enable row level security;
 
 create policy "Users read own profile" on public.profiles for select using (auth.uid() = id);
 create policy "Users update own profile" on public.profiles for update using (auth.uid() = id) with check (auth.uid() = id);
@@ -185,6 +203,10 @@ for each row execute procedure public.handle_new_user();
 create index boost_jobs_user_created_idx on public.boost_jobs(user_id, created_at desc);
 create index boost_jobs_status_idx on public.boost_jobs(status);
 create index usage_ledger_user_created_idx on public.usage_ledger(user_id, created_at desc);
+create unique index webhook_events_provider_dedupe_idx on public.webhook_events(provider, dedupe_key);
+create index webhook_events_target_user_idx on public.webhook_events(target_user_id, received_at desc);
+create index webhook_events_status_idx on public.webhook_events(status, received_at desc);
+create index webhook_events_event_id_idx on public.webhook_events(provider, event_id);
 
 do $$
 begin

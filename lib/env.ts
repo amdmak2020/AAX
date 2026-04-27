@@ -24,10 +24,6 @@ export function hasLemonSqueezyApiKey() {
   return Boolean(process.env.LEMONSQUEEZY_API_KEY);
 }
 
-export function isStripeConfigured() {
-  return Boolean(process.env.STRIPE_SECRET_KEY);
-}
-
 export function getLemonSqueezyStoreId() {
   return process.env.LEMONSQUEEZY_STORE_ID ?? null;
 }
@@ -62,16 +58,6 @@ export function getLemonSqueezyWebhookSecret() {
 
 export function hasUpstashRateLimitConfig() {
   return Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
-}
-
-export function getStripePriceId(planKey: Exclude<PlanKey, "free">) {
-  const priceIds = {
-    creator: process.env.STRIPE_CREATOR_PRICE_ID,
-    pro: process.env.STRIPE_PRO_PRICE_ID,
-    business: process.env.STRIPE_BUSINESS_PRICE_ID
-  } as const;
-
-  return priceIds[planKey] ?? null;
 }
 
 export function bypassUsageLimits() {

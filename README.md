@@ -97,6 +97,7 @@ Run the schema file in the Supabase SQL Editor. It creates:
 - `usage_ledger`
 - `boost_jobs`
 - `admin_events`
+- `webhook_events`
 
 It also:
 
@@ -189,6 +190,7 @@ Routes now wired for Lemon Squeezy:
 - [webhook route](C:/Users/asus/Documents/Codex/2026-04-20-i-want-to-build-a-saas/app/api/lemonsqueezy/webhook/route.ts)
 
 The webhook updates the `subscriptions` row from Lemon Squeezy subscription events.
+Webhook deliveries are also written to `webhook_events` for durable auditability and replay-safe idempotency.
 
 For local webhook testing, point Lemon Squeezy at:
 

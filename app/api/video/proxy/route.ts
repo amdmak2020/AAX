@@ -12,6 +12,7 @@ const allowedHosts = new Set([
   "ptlpjrkyuztofbsfefzk.supabase.co"
 ]);
 const maxPreviewVideoBytes = 250 * 1024 * 1024;
+const maxRedirectHops = 3;
 const proxyQuerySchema = z
   .object({
     url: z.string().trim().min(1).max(2048).transform((value, ctx) => {
@@ -26,7 +27,63 @@ const proxyQuerySchema = z
   .strict();
 
 function isAllowedUrl(url: URL) {
-  return url.protocol === "https:" && !url.port && allowedHosts.has(url.hostname);
+  return url.protocol === "https:" && !url.port && !url.username && !url.password && allowedHosts.has(url.hostname);
+}
+
+async function userOwnsVideoUrl(userId: string, normalizedUrl: string) {
+  const supabase = await createSupabaseServerClient();
+
+  const [legacy, modern] = await Promise.all([
+    supabase.from("video_jobs").select("id").eq("user_id", userId).eq("output_asset_path", normalizedUrl).limit(1).maybeSingle(),
+    supabase.from("boost_jobs").select("id").eq("user_id", userId).eq("output_video_url", normalizedUrl).limit(1).maybeSingle()
+  ]);
+
+  const legacyMissing = legacy.error?.code === "42P01";
+  const modernMissing = modern.error?.code === "42P01";
+
+  if (legacy.error && !legacyMissing) {
+    throw new Error(legacy.error.message);
+  }
+
+  if (modern.error && !modernMissing) {
+    throw new Error(modern.error.message);
+  }
+
+  return Boolean(legacy.data?.id || modern.data?.id);
+}
+
+async function fetchWithAllowedRedirects(initialUrl: URL, range: string | null) {
+  let currentUrl = new URL(initialUrl.toString());
+
+  for (let hop = 0; hop <= maxRedirectHops; hop += 1) {
+    const upstream = await fetch(currentUrl, {
+      headers: {
+        ...(range ? { range } : {}),
+        "user-agent": "AutoAgentXVideoProxy/1.0"
+      },
+      redirect: "manual",
+      cache: "no-store"
+    });
+
+    if (upstream.status >= 300 && upstream.status < 400) {
+      const location = upstream.headers.get("location");
+      if (!location) {
+        return upstream;
+      }
+
+      const redirectedUrl = new URL(location, currentUrl);
+      if (!isAllowedUrl(redirectedUrl)) {
+        throw new Error("Redirected video host is not allowed.");
+      }
+
+      currentUrl = redirectedUrl;
+      continue;
+    }
+
+    return upstream;
+  }
+
+  throw new Error("Too many redirects while loading the video preview.");
 }
 
 export async function GET(request: Request) {
@@ -92,15 +149,26 @@ export async function GET(request: Request) {
     });
   }
 
+  const ownsUrl = await userOwnsVideoUrl(user.id, targetUrl.toString());
+  if (!ownsUrl) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "You can only preview videos that belong to your account." }, { status: 403 }), {
+      limit: 120,
+      remaining: limiter.remaining,
+      resetAt: limiter.resetAt,
+      store: limiter.store
+    });
+  }
+
   const range = request.headers.get("range");
-  const upstream = await fetch(targetUrl, {
-    headers: {
-      ...(range ? { range } : {}),
-      "user-agent": "ShortsMachineVideoProxy/1.0"
-    },
-    redirect: "follow",
-    cache: "no-store"
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetchWithAllowedRedirects(targetUrl, range);
+  } catch (error) {
+    return applyRateLimitHeaders(
+      NextResponse.json({ error: error instanceof Error ? error.message : "Could not load the video preview." }, { status: 400 }),
+      { limit: 120, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
+    );
+  }
 
   if (!upstream.ok && upstream.status !== 206) {
     return applyRateLimitHeaders(
@@ -125,7 +193,16 @@ export async function GET(request: Request) {
     });
   }
 
-  headers.set("content-type", contentType.includes("text/html") ? "video/mp4" : contentType);
+  if (contentType.includes("text/html")) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "The upstream preview did not return a video stream." }, { status: 415 }), {
+      limit: 120,
+      remaining: limiter.remaining,
+      resetAt: limiter.resetAt,
+      store: limiter.store
+    });
+  }
+
+  headers.set("content-type", contentType);
   headers.set("accept-ranges", acceptRanges);
   headers.set("cache-control", "private, max-age=300");
 

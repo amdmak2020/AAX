@@ -7,7 +7,7 @@ import { verifyLemonSqueezySignature } from "@/lib/lemonsqueezy";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requestExceedsBytes, strictUuidSchema } from "@/lib/validation";
 import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
-import { reserveWebhookDelivery } from "@/lib/webhook-idempotency";
+import { finalizePersistentWebhookEvent, reservePersistentWebhookEvent } from "@/lib/webhook-ledger";
 
 const maxLemonWebhookBytes = 256 * 1024;
 const stringOrNumberSchema = z.union([z.string(), z.number()]);
@@ -81,6 +81,11 @@ function normalizeStatus(eventName: string | undefined, status: string | null | 
 }
 
 export async function POST(request: Request) {
+  let ledgerId: string | null = null;
+  let targetUserId: string | null = null;
+  let webhookId: string | null = null;
+  let eventName: string | undefined;
+
   try {
     if (requestExceedsBytes(request, maxLemonWebhookBytes)) {
       return NextResponse.json({ error: "Webhook payload is too large." }, { status: 413 });
@@ -106,22 +111,31 @@ export async function POST(request: Request) {
     }
 
     const payload = parsedPayload.data;
-    const reservation = await reserveWebhookDelivery({
+    eventName = payload.meta?.event_name;
+    webhookId = payload.meta?.webhook_id ?? null;
+
+    const reservation = await reservePersistentWebhookEvent({
       source: "lemonsqueezy",
       payload: payloadText,
       ttlSeconds: 30 * 24 * 60 * 60,
-      eventId: payload.meta?.webhook_id ?? null
+      eventId: webhookId,
+      eventName
     });
+    ledgerId = "ledgerId" in reservation ? reservation.ledgerId ?? null : null;
     if (!reservation.reserved) {
       return NextResponse.json({ received: true, duplicate: true, store: reservation.store });
     }
 
-    const eventName = payload.meta?.event_name;
     const dataType = payload.data?.type ?? null;
     const subscriptionId = payload.data?.id ? String(payload.data.id) : null;
     const attributes = payload.data?.attributes;
 
     if (dataType === "subscription-invoices") {
+      await finalizePersistentWebhookEvent({
+        ledgerId,
+        status: "skipped",
+        metadata: { provider: "lemonsqueezy", event_name: eventName ?? null, reason: "subscription_invoices_ignored" }
+      });
       return NextResponse.json({ received: true, skipped: true });
     }
 
@@ -138,6 +152,8 @@ export async function POST(request: Request) {
       userId = existing.data?.user_id ?? null;
     }
 
+    targetUserId = userId;
+
     if (!userId) {
       await logAuditEvent({
         actorUserId: null,
@@ -150,6 +166,17 @@ export async function POST(request: Request) {
           customer_id: customerId,
           webhook_id: payload.meta?.webhook_id ?? null
         })
+      });
+      await finalizePersistentWebhookEvent({
+        ledgerId,
+        status: "skipped",
+        metadata: {
+          provider: "lemonsqueezy",
+          event_name: eventName ?? null,
+          webhook_id: webhookId,
+          customer_id: customerId,
+          reason: "missing_user_mapping"
+        }
       });
       return NextResponse.json({ received: true, skipped: true });
     }
@@ -187,9 +214,33 @@ export async function POST(request: Request) {
       })
     });
 
+    await finalizePersistentWebhookEvent({
+      ledgerId,
+      status: "processed",
+      targetUserId: userId,
+      metadata: {
+        provider: "lemonsqueezy",
+        event_name: eventName ?? null,
+        webhook_id: webhookId,
+        plan_key: planKey,
+        status
+      }
+    });
+
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error("Lemon Squeezy webhook error", error);
+    await finalizePersistentWebhookEvent({
+      ledgerId,
+      status: "failed",
+      targetUserId,
+      metadata: {
+        provider: "lemonsqueezy",
+        event_name: eventName ?? null,
+        webhook_id: webhookId
+      },
+      errorMessage: error instanceof Error ? error.message : "Unknown webhook processing error"
+    });
     return NextResponse.json({ error: "Webhook processing failed." }, { status: 500 });
   }
 }
