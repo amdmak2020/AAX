@@ -20,11 +20,15 @@ export function applyRateLimitHeaders(
     remaining: number;
     resetAt: number;
     retryAfterSeconds?: number;
+    store?: "memory" | "upstash";
   }
 ) {
   response.headers.set("X-RateLimit-Limit", String(details.limit));
   response.headers.set("X-RateLimit-Remaining", String(details.remaining));
   response.headers.set("X-RateLimit-Reset", String(Math.ceil(details.resetAt / 1000)));
+  if (details.store) {
+    response.headers.set("X-RateLimit-Store", details.store);
+  }
 
   if (details.retryAfterSeconds && details.retryAfterSeconds > 0) {
     response.headers.set("Retry-After", String(details.retryAfterSeconds));

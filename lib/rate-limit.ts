@@ -15,6 +15,7 @@ export type RateLimitResult = {
   remaining: number;
   retryAfterSeconds: number;
   resetAt: number;
+  store: "memory" | "upstash";
 };
 
 type UpstashCommandResult = {
@@ -60,7 +61,8 @@ function normalizeRateLimitResult(currentCount: number, ttlMs: number, limit: nu
     allowed: currentCount <= limit,
     remaining: Math.max(limit - currentCount, 0),
     retryAfterSeconds,
-    resetAt: Date.now() + Math.max(ttlMs, 0)
+    resetAt: Date.now() + Math.max(ttlMs, 0),
+    store: "upstash"
   };
 }
 
@@ -81,7 +83,8 @@ function takeMemoryRateLimitToken(options: RateLimitOptions): RateLimitResult {
       allowed: true,
       remaining: Math.max(options.limit - 1, 0),
       retryAfterSeconds: 0,
-      resetAt: next.resetAt
+      resetAt: next.resetAt,
+      store: "memory"
     };
   }
 
@@ -90,7 +93,8 @@ function takeMemoryRateLimitToken(options: RateLimitOptions): RateLimitResult {
       allowed: false,
       remaining: 0,
       retryAfterSeconds: Math.max(Math.ceil((current.resetAt - now) / 1000), 1),
-      resetAt: current.resetAt
+      resetAt: current.resetAt,
+      store: "memory"
     };
   }
 
@@ -101,7 +105,8 @@ function takeMemoryRateLimitToken(options: RateLimitOptions): RateLimitResult {
     allowed: true,
     remaining: Math.max(options.limit - current.count, 0),
     retryAfterSeconds: 0,
-    resetAt: current.resetAt
+    resetAt: current.resetAt,
+    store: "memory"
   };
 }
 
