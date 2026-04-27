@@ -3,7 +3,7 @@ import { z } from "zod";
 import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
 import { getProcessorProvider } from "@/lib/processor/provider";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { getEnv } from "@/lib/env";
+import { getN8nProcessorSecret } from "@/lib/env";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { secureCompare } from "@/lib/security";
 import { optionalHttpUrlSchema, requestExceedsBytes, singleLineTextSchema, strictUuidSchema } from "@/lib/validation";
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     });
   }
 
-  const secret = getEnv("N8N_PROCESSOR_SECRET");
+  const secret = getN8nProcessorSecret();
   const incoming = request.headers.get("x-processor-secret");
 
   if (!secureCompare(secret, incoming)) {

@@ -1,4 +1,4 @@
-import { getEnv } from "@/lib/env";
+import { getEnv, getN8nProcessorSecret } from "@/lib/env";
 import { parseSafeRemoteUrl } from "@/lib/network-security";
 import type { ProcessorProvider, ProcessorWebhookResult, ProcessorSubmitInput, ProcessorSubmitResult } from "@/lib/processor/types";
 
@@ -9,7 +9,7 @@ export const n8nProcessorProvider: ProcessorProvider = {
   key: "n8n",
   async submitJob(input: ProcessorSubmitInput): Promise<ProcessorSubmitResult> {
     const endpoint = getEnv("N8N_PROCESSOR_ENDPOINT") ?? getEnv("N8N_WEBHOOK_URL");
-    const secret = getEnv("N8N_PROCESSOR_SECRET");
+    const secret = getN8nProcessorSecret();
 
     if (!endpoint) {
       return {

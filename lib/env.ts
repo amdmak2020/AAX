@@ -20,6 +20,10 @@ export function getProcessorProviderKey() {
   return process.env.PROCESSOR_PROVIDER ?? "mock";
 }
 
+export function getN8nProcessorSecret() {
+  return process.env.N8N_PROCESSOR_SECRET ?? process.env.N8N_WEBHOOK_SECRET ?? null;
+}
+
 export function hasLemonSqueezyApiKey() {
   return Boolean(process.env.LEMONSQUEEZY_API_KEY);
 }

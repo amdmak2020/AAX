@@ -89,7 +89,7 @@ npm run dev -- --hostname localhost --port 3001
 
 - `ALERT_WEBHOOK_URL` optional, for forwarding critical operational alerts to Slack, Discord, Better Stack, PagerDuty intake, or another incident channel
 
-`N8N_WEBHOOK_URL` and `N8N_WEBHOOK_SECRET` are still accepted as legacy aliases if your existing external flow already uses those names.
+`N8N_WEBHOOK_URL` and `N8N_WEBHOOK_SECRET` are still accepted as legacy aliases if your existing external flow already uses those names. The production build guard also accepts `N8N_WEBHOOK_SECRET` as the legacy alias for `N8N_PROCESSOR_SECRET`.
 
 Use separate keys for development, preview / staging, and production. If a secret was pasted into chat, logs, screenshots, or a public issue, rotate it immediately and replace it in your hosting environment manager.
 

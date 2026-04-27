@@ -16,13 +16,16 @@ export function validateProductionBuildEnv() {
   }
 
   const required = new Set<string>([...sharedRequiredEnv]);
+  const hasProcessorSecret = Boolean(process.env.N8N_PROCESSOR_SECRET?.trim() || process.env.N8N_WEBHOOK_SECRET?.trim());
 
   if ((process.env.PROCESSOR_PROVIDER ?? "mock") === "n8n") {
     required.add("N8N_PROCESSOR_ENDPOINT");
-    required.add("N8N_PROCESSOR_SECRET");
   }
 
   const missing = [...required].filter((name) => !process.env[name]?.trim());
+  if ((process.env.PROCESSOR_PROVIDER ?? "mock") === "n8n" && !hasProcessorSecret) {
+    missing.push("N8N_PROCESSOR_SECRET (or legacy N8N_WEBHOOK_SECRET)");
+  }
   if (missing.length > 0) {
     throw new Error(`Production build is missing required environment variables: ${missing.join(", ")}`);
   }
