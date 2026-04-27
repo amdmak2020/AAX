@@ -1,3 +1,4 @@
+import { CsrfHiddenInput } from "@/components/security/csrf-hidden-input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -16,6 +17,7 @@ export default async function UpdatePasswordPage({
         <div className="mt-4 rounded-lg border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-pearl/80">{params.error}</div>
       ) : null}
       <form action="/api/auth/update-password" className="mt-6 grid gap-4" method="post">
+        <CsrfHiddenInput />
         <label className="grid gap-2">
           <span className="text-sm font-black">New password</span>
           <input className="rounded-lg border border-pearl/10 bg-ink px-4 py-3" minLength={8} name="password" type="password" required />

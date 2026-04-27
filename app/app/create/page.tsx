@@ -1,5 +1,6 @@
 import { AlertTriangle, Sparkles } from "lucide-react";
 import { FileUploadDropzone } from "@/components/app/file-upload-dropzone";
+import { CsrfHiddenInput } from "@/components/security/csrf-hidden-input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { planCatalog, sourceUploadMaxMb } from "@/lib/app-config";
@@ -112,6 +113,7 @@ export default async function CreateBoostJobPage({
       ) : null}
 
       <form action="/api/boost-jobs" className="mt-8" method="post" encType="multipart/form-data">
+        <CsrfHiddenInput />
         <Card className="relative overflow-hidden border-mint/20 bg-[radial-gradient(circle_at_top,rgba(61,239,176,0.14),transparent_40%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))] p-8 md:p-10">
           <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-mint/50 to-transparent" />
 

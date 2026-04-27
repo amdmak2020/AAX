@@ -1,4 +1,5 @@
 import { PricingCard } from "@/components/public/pricing-card";
+import { CsrfHiddenInput } from "@/components/security/csrf-hidden-input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { plans } from "@/lib/product";
@@ -23,6 +24,7 @@ export default async function BillingPage() {
             <p className="mt-2 text-pearl/62">{formatCredits(account.creditsUsed, account.creditsTotal)}</p>
           </div>
           <form action="/api/lemonsqueezy/portal" method="post">
+            <CsrfHiddenInput />
             <Button type="submit" variant="secondary">
               Manage subscription
             </Button>

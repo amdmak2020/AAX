@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
 import { getEnv, isSupabaseConfigured } from "@/lib/env";
 import { statusLabels } from "@/lib/jobs";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { secureCompare } from "@/lib/security";
 import { optionalHttpUrlSchema, requestExceedsBytes, singleLineTextSchema, strictUuidSchema } from "@/lib/validation";
+import { reserveWebhookDelivery } from "@/lib/webhook-idempotency";
 
 const maxWebhookBytes = 64 * 1024;
 const n8nWebhookSchema = z
@@ -34,6 +36,15 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
+  const reservation = await reserveWebhookDelivery({
+    source: "n8n",
+    payload: JSON.stringify(body ?? {}),
+    ttlSeconds: 7 * 24 * 60 * 60
+  });
+  if (!reservation.reserved) {
+    return NextResponse.json({ received: true, duplicate: true, store: reservation.store });
+  }
+
   const parsed = n8nWebhookSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid status update" }, { status: 400 });
@@ -57,6 +68,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
   }
+
+  await logAuditEvent({
+    targetType: "video_job",
+    targetId: parsed.data.jobId,
+    action: "n8n.webhook_applied",
+    metadata: buildRequestAuditMetadata(request, {
+      status: parsed.data.status,
+      execution_id: parsed.data.executionId ?? parsed.data.n8n_execution_id ?? null,
+      store: reservation.store
+    })
+  });
 
   return NextResponse.json({ ok: true });
 }

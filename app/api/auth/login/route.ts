@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isEmailVerified } from "@/lib/access-control";
+import { buildRequestAuditMetadata, hashAuditIdentifier, logAuditEvent } from "@/lib/audit";
+import { verifyCsrfRequest } from "@/lib/csrf";
 import { applyRateLimitHeaders, enforceRateLimit, normalizeEmail } from "@/lib/request-security";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSafeRedirectPath } from "@/lib/security";
@@ -18,7 +20,12 @@ export async function POST(request: Request) {
   }
 
   const formData = await request.formData();
-  const unexpectedFields = getUnexpectedFormFields(formData, ["email", "password", "next"]);
+  const csrfCheck = await verifyCsrfRequest(request, formData.get("csrfToken")?.toString() ?? null);
+  if (!csrfCheck.ok) {
+    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent("Your session expired. Refresh and try again.")}`, request.url), { status: 303 });
+  }
+
+  const unexpectedFields = getUnexpectedFormFields(formData, ["email", "password", "next", "csrfToken"]);
   if (unexpectedFields.length > 0) {
     return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent("Unexpected login fields were submitted.")}`, request.url), { status: 303 });
   }
@@ -56,6 +63,12 @@ export async function POST(request: Request) {
   const { data, error } = await supabase.auth.signInWithPassword({ email: parsed.data.email, password: parsed.data.password });
 
   if (error) {
+    await logAuditEvent({
+      targetType: "auth_email",
+      targetId: hashAuditIdentifier(parsed.data.email) ?? "unknown",
+      action: "auth.login_failed",
+      metadata: buildRequestAuditMetadata(request, { reason: "invalid_credentials" })
+    });
     return applyRateLimitHeaders(
       NextResponse.redirect(new URL(`/login?error=${encodeURIComponent("We couldn't sign you in with those details.")}`, request.url), { status: 303 }),
       { limit: 8, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
@@ -64,11 +77,26 @@ export async function POST(request: Request) {
 
   if (!isEmailVerified(data.user)) {
     await supabase.auth.signOut();
+    await logAuditEvent({
+      actorUserId: data.user.id,
+      targetType: "auth_user",
+      targetId: data.user.id,
+      action: "auth.login_blocked_unverified",
+      metadata: buildRequestAuditMetadata(request)
+    });
     return applyRateLimitHeaders(
       NextResponse.redirect(new URL(`/check-email?email=${encodeURIComponent(parsed.data.email)}&pending=1`, request.url), { status: 303 }),
       { limit: 8, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
     );
   }
+
+  await logAuditEvent({
+    actorUserId: data.user.id,
+    targetType: "auth_user",
+    targetId: data.user.id,
+    action: "auth.login_succeeded",
+    metadata: buildRequestAuditMetadata(request)
+  });
 
   return applyRateLimitHeaders(NextResponse.redirect(new URL(next, request.url), { status: 303 }), {
     limit: 8,

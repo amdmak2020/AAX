@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
+import { verifyCsrfRequest } from "@/lib/csrf";
 import { getAppUrl } from "@/lib/env";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { getSafeRedirectPath } from "@/lib/security";
@@ -13,7 +15,12 @@ export async function POST(request: Request) {
   }
 
   const formData = await request.formData();
-  const unexpectedFields = getUnexpectedFormFields(formData, ["next"]);
+  const csrfCheck = await verifyCsrfRequest(request, formData.get("csrfToken")?.toString() ?? null);
+  if (!csrfCheck.ok) {
+    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent("Your session expired. Refresh and try again.")}`, request.url), { status: 303 });
+  }
+
+  const unexpectedFields = getUnexpectedFormFields(formData, ["next", "csrfToken"]);
   if (unexpectedFields.length > 0) {
     return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent("Unexpected sign-in fields were submitted.")}`, request.url), { status: 303 });
   }
@@ -48,6 +55,12 @@ export async function POST(request: Request) {
   });
 
   if (error || !data.url) {
+    await logAuditEvent({
+      targetType: "auth_oauth",
+      targetId: "google",
+      action: "auth.google_start_failed",
+      metadata: buildRequestAuditMetadata(request)
+    });
     return applyRateLimitHeaders(NextResponse.json({ error: error?.message ?? "Could not start Google sign in." }, { status: 400 }), {
       limit: 12,
       remaining: limiter.remaining,
@@ -55,6 +68,13 @@ export async function POST(request: Request) {
       store: limiter.store
     });
   }
+
+  await logAuditEvent({
+    targetType: "auth_oauth",
+    targetId: "google",
+    action: "auth.google_start_succeeded",
+    metadata: buildRequestAuditMetadata(request)
+  });
 
   return applyRateLimitHeaders(NextResponse.redirect(data.url, { status: 303 }), {
     limit: 12,

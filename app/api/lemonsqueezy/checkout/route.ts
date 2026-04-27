@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { planCatalog, type PlanKey } from "@/lib/app-config";
 import { isEmailVerified } from "@/lib/access-control";
+import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
 import { getViewerWorkspace } from "@/lib/app-data";
+import { verifyCsrfRequest } from "@/lib/csrf";
 import { getAppUrl, getLemonSqueezyStoreId, getLemonSqueezyVariantId, hasLemonSqueezyCheckoutConfig } from "@/lib/env";
 import { createLemonSqueezyCheckout } from "@/lib/lemonsqueezy";
 import { getUnexpectedFormFields, requestExceedsBytes } from "@/lib/validation";
@@ -18,7 +20,12 @@ export async function POST(request: Request) {
   }
 
   const formData = await request.formData();
-  const unexpectedFields = getUnexpectedFormFields(formData, ["planKey"]);
+  const csrfCheck = await verifyCsrfRequest(request, formData.get("csrfToken")?.toString() ?? null);
+  if (!csrfCheck.ok) {
+    return NextResponse.json({ error: "CSRF validation failed." }, { status: 403 });
+  }
+
+  const unexpectedFields = getUnexpectedFormFields(formData, ["planKey", "csrfToken"]);
   if (unexpectedFields.length > 0) {
     return NextResponse.json({ error: "Unexpected checkout fields." }, { status: 400 });
   }
@@ -64,9 +71,24 @@ export async function POST(request: Request) {
       redirectUrl: `${getAppUrl()}/app/billing?checkout=success`
     });
 
+    await logAuditEvent({
+      actorUserId: workspace.profile.id,
+      targetType: "subscription",
+      targetId: workspace.profile.id,
+      action: "billing.checkout_started",
+      metadata: buildRequestAuditMetadata(request, { plan_key: planKey, provider: "lemonsqueezy" })
+    });
+
     return NextResponse.redirect(checkoutUrl, { status: 303 });
   } catch (error) {
     console.error("Lemon Squeezy checkout error", error);
+    await logAuditEvent({
+      actorUserId: workspace.profile.id,
+      targetType: "subscription",
+      targetId: workspace.profile.id,
+      action: "billing.checkout_failed",
+      metadata: buildRequestAuditMetadata(request, { plan_key: planKey, provider: "lemonsqueezy" })
+    });
     return NextResponse.redirect(`${getAppUrl()}/app/billing?checkout=failed`, { status: 303 });
   }
 }

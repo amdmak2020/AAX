@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { buildRequestAuditMetadata, hashAuditIdentifier, logAuditEvent } from "@/lib/audit";
+import { verifyCsrfRequest } from "@/lib/csrf";
 import { getAppUrl } from "@/lib/env";
 import { applyRateLimitHeaders, enforceRateLimit, normalizeEmail } from "@/lib/request-security";
 import { getSafeRedirectPath } from "@/lib/security";
@@ -22,7 +24,12 @@ export async function POST(request: Request) {
   }
 
   const formData = await request.formData();
-  const unexpectedFields = getUnexpectedFormFields(formData, ["name", "email", "password", "next"]);
+  const csrfCheck = await verifyCsrfRequest(request, formData.get("csrfToken")?.toString() ?? null);
+  if (!csrfCheck.ok) {
+    return NextResponse.redirect(new URL(`/signup?error=${encodeURIComponent("Your session expired. Refresh and try again.")}`, request.url), { status: 303 });
+  }
+
+  const unexpectedFields = getUnexpectedFormFields(formData, ["name", "email", "password", "next", "csrfToken"]);
   if (unexpectedFields.length > 0) {
     return NextResponse.redirect(new URL(`/signup?error=${encodeURIComponent("Unexpected sign-up fields were submitted.")}`, request.url), { status: 303 });
   }
@@ -68,11 +75,25 @@ export async function POST(request: Request) {
   });
 
   if (error) {
+    await logAuditEvent({
+      targetType: "auth_email",
+      targetId: hashAuditIdentifier(parsed.data.email) ?? "unknown",
+      action: "auth.signup_failed",
+      metadata: buildRequestAuditMetadata(request)
+    });
     return applyRateLimitHeaders(
       NextResponse.redirect(new URL(`/signup?error=${encodeURIComponent("We couldn't create that account. Double-check the details or try signing in.")}`, request.url), { status: 303 }),
       { limit: 5, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
     );
   }
+
+  await logAuditEvent({
+    actorUserId: error ? null : undefined,
+    targetType: "auth_email",
+    targetId: hashAuditIdentifier(parsed.data.email) ?? "unknown",
+    action: "auth.signup_requested",
+    metadata: buildRequestAuditMetadata(request, { email_verification: true })
+  });
 
   return applyRateLimitHeaders(
     NextResponse.redirect(new URL(`/check-email?email=${encodeURIComponent(parsed.data.email)}`, request.url), { status: 303 }),

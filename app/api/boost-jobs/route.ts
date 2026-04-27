@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { planCatalog, sourceUploadMaxMb, type PlanKey } from "@/lib/app-config";
 import { ensureAccountRecords, updateSubscriptionUsage } from "@/lib/account-bootstrap";
+import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
+import { verifyCsrfRequest } from "@/lib/csrf";
 import { bypassUsageLimits, getAppUrl } from "@/lib/env";
 import { getProcessorProvider } from "@/lib/processor/provider";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
@@ -102,7 +104,12 @@ export async function POST(request: Request) {
     }
 
     const formData = await request.formData();
-    const unexpectedFields = getUnexpectedFormFields(formData, ["sourceFile", "sourceUrl", "description"]);
+    const csrfCheck = await verifyCsrfRequest(request, formData.get("csrfToken")?.toString() ?? null);
+    if (!csrfCheck.ok) {
+      return respondWithCreateError(request, "csrf_failed", "Your session expired. Refresh and try again.", 403);
+    }
+
+    const unexpectedFields = getUnexpectedFormFields(formData, ["sourceFile", "sourceUrl", "description", "csrfToken"]);
     if (unexpectedFields.length > 0) {
       return respondWithCreateError(request, "unexpected_fields", "Unexpected fields were submitted.", 400);
     }
@@ -238,6 +245,17 @@ export async function POST(request: Request) {
         store: limiter.store
       });
     }
+
+    await logAuditEvent({
+      actorUserId: user.id,
+      targetType: "video_job",
+      targetId: jobId,
+      action: "boost_job.created",
+      metadata: buildRequestAuditMetadata(request, {
+        plan_key: subscription.plan_key,
+        source_type: useFileSource ? "upload" : "external-url"
+      })
+    });
 
     try {
       await updateSubscriptionUsage({

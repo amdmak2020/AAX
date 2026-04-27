@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BarChart3, CreditCard, FolderOpen, Home, LogOut, PlusCircle, Settings, Shield } from "lucide-react";
 import { AaxLogo } from "@/components/brand/aax-logo";
+import { CsrfHiddenInput } from "@/components/security/csrf-hidden-input";
 import { Button } from "@/components/ui/button";
 import { formatCredits } from "@/lib/utils";
 
@@ -44,6 +45,7 @@ export function AppSidebar({
         <p className="mt-1 text-xs leading-5 text-pearl/58">{plan} plan usage</p>
       </div>
       <form action="/api/auth/logout" className="mt-4" method="post">
+        <CsrfHiddenInput />
         <Button className="w-full justify-center" type="submit" variant="secondary">
           <LogOut className="mr-2 h-4 w-4" />
           Sign out

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
+import { verifyCsrfRequest } from "@/lib/csrf";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUnexpectedFormFields, requestExceedsBytes } from "@/lib/validation";
@@ -21,7 +23,12 @@ export async function POST(request: Request) {
   }
 
   const formData = await request.formData();
-  const unexpectedFields = getUnexpectedFormFields(formData, ["password", "confirmPassword"]);
+  const csrfCheck = await verifyCsrfRequest(request, formData.get("csrfToken")?.toString() ?? null);
+  if (!csrfCheck.ok) {
+    return NextResponse.redirect(new URL(`/update-password?error=${encodeURIComponent("Your session expired. Refresh and try again.")}`, request.url), { status: 303 });
+  }
+
+  const unexpectedFields = getUnexpectedFormFields(formData, ["password", "confirmPassword", "csrfToken"]);
   if (unexpectedFields.length > 0) {
     return NextResponse.redirect(new URL(`/update-password?error=${encodeURIComponent("Unexpected password fields were submitted.")}`, request.url), { status: 303 });
   }
@@ -54,6 +61,9 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createSupabaseServerClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
 
   if (error) {
@@ -62,6 +72,14 @@ export async function POST(request: Request) {
       { limit: 10, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
     );
   }
+
+  await logAuditEvent({
+    actorUserId: user?.id ?? null,
+    targetType: "auth_user",
+    targetId: user?.id ?? "unknown",
+    action: "auth.password_updated",
+    metadata: buildRequestAuditMetadata(request)
+  });
 
   return applyRateLimitHeaders(NextResponse.redirect(new URL("/login?reset=success", request.url), { status: 303 }), {
     limit: 10,

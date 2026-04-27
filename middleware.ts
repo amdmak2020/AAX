@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import type { CookieOptions } from "@supabase/ssr";
+import { createCsrfToken, csrfCookieName } from "@/lib/csrf";
 import { isSupabaseConfigured } from "@/lib/env";
 import { hardenSupabaseCookieOptions } from "@/lib/supabase/cookies";
 
@@ -27,6 +28,18 @@ export function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request
   });
+
+  if ((request.method === "GET" || request.method === "HEAD") && !request.nextUrl.pathname.startsWith("/api")) {
+    const existingCsrf = request.cookies.get(csrfCookieName)?.value;
+    if (!existingCsrf) {
+      response.cookies.set(csrfCookieName, createCsrfToken(), {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/"
+      });
+    }
+  }
 
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("X-Content-Type-Options", "nosniff");

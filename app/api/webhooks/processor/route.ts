@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
 import { getProcessorProvider } from "@/lib/processor/provider";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getEnv } from "@/lib/env";
 import { secureCompare } from "@/lib/security";
 import { optionalHttpUrlSchema, requestExceedsBytes, singleLineTextSchema, strictUuidSchema } from "@/lib/validation";
+import { reserveWebhookDelivery } from "@/lib/webhook-idempotency";
 
 const maxProcessorWebhookBytes = 64 * 1024;
 const processorWebhookResultSchema = z
@@ -31,6 +33,16 @@ export async function POST(request: Request) {
   }
 
   const payload = await request.json().catch(() => null);
+  const payloadText = JSON.stringify(payload ?? {});
+  const reservation = await reserveWebhookDelivery({
+    source: "processor",
+    payload: payloadText,
+    ttlSeconds: 7 * 24 * 60 * 60
+  });
+  if (!reservation.reserved) {
+    return NextResponse.json({ received: true, duplicate: true, store: reservation.store });
+  }
+
   const provider = getProcessorProvider();
   const parsedResult = provider.parseWebhook ? await provider.parseWebhook(payload) : null;
   const parsed = processorWebhookResultSchema.safeParse(parsedResult);
@@ -65,6 +77,18 @@ export async function POST(request: Request) {
   if (update.error) {
     return NextResponse.json({ error: update.error.message }, { status: 500 });
   }
+
+  await logAuditEvent({
+    targetType: "video_job",
+    targetId,
+    action: "processor.webhook_applied",
+    metadata: buildRequestAuditMetadata(request, {
+      provider: provider.key,
+      status: parsed.data.status,
+      external_job_id: parsed.data.externalJobId ?? null,
+      store: reservation.store
+    })
+  });
 
   return NextResponse.json({ ok: true });
 }

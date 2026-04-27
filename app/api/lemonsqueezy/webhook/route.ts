@@ -6,6 +6,8 @@ import { getLemonSqueezyVariantId, getLemonSqueezyWebhookSecret } from "@/lib/en
 import { verifyLemonSqueezySignature } from "@/lib/lemonsqueezy";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requestExceedsBytes, strictUuidSchema } from "@/lib/validation";
+import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
+import { reserveWebhookDelivery } from "@/lib/webhook-idempotency";
 
 const maxLemonWebhookBytes = 256 * 1024;
 const stringOrNumberSchema = z.union([z.string(), z.number()]);
@@ -86,6 +88,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid webhook signature." }, { status: 400 });
     }
 
+    const reservation = await reserveWebhookDelivery({
+      source: "lemonsqueezy",
+      payload: payloadText,
+      ttlSeconds: 30 * 24 * 60 * 60
+    });
+    if (!reservation.reserved) {
+      return NextResponse.json({ received: true, duplicate: true, store: reservation.store });
+    }
+
     const rawPayload = JSON.parse(payloadText) as unknown;
     const parsed = lemonWebhookSchema.safeParse(rawPayload);
     if (!parsed.success) {
@@ -127,6 +138,20 @@ export async function POST(request: Request) {
       status,
       creditsTotal: planCatalog[planKey].monthlyCredits,
       currentPeriodEnd
+    });
+
+    await logAuditEvent({
+      actorUserId: userId,
+      targetType: "subscription",
+      targetId: subscriptionId ?? userId,
+      action: `billing.webhook.${eventName ?? "unknown"}`,
+      metadata: buildRequestAuditMetadata(request, {
+        provider: "lemonsqueezy",
+        plan_key: planKey,
+        status,
+        store: reservation.store,
+        duplicate: false
+      })
     });
 
     return NextResponse.json({ received: true });

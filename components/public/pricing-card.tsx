@@ -1,6 +1,7 @@
 import { Check } from "lucide-react";
 import { MagneticPanel } from "@/components/effects/magnetic-panel";
 import { InteractiveSurface } from "@/components/effects/interactive-surface";
+import { CsrfHiddenInput } from "@/components/security/csrf-hidden-input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -46,6 +47,7 @@ export function PricingCard({ plan }: PricingCardProps) {
           </ul>
           {plan.ctaFormAction ? (
             <form action={plan.ctaFormAction} className="mt-7" method="post">
+              <CsrfHiddenInput />
               {Object.entries(plan.ctaFields ?? {}).map(([name, value]) => (
                 <input key={name} name={name} type="hidden" value={value} />
               ))}

@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { CsrfHiddenInput } from "@/components/security/csrf-hidden-input";
 
 export function GoogleButton({
   label = "Continue with Google",
@@ -9,6 +10,7 @@ export function GoogleButton({
 }) {
   return (
     <form action="/api/auth/google" method="post">
+      <CsrfHiddenInput />
       <input name="next" type="hidden" value={next} />
       <Button className="w-full bg-pearl text-ink hover:bg-pearl/90" type="submit" variant="secondary">
         <span className="mr-3 flex h-5 w-5 items-center justify-center rounded bg-white text-sm font-black text-ink">G</span>

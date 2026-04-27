@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { hasRole, isEmailVerified, isRecentlyAuthenticated } from "@/lib/access-control";
+import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
 import { getCurrentProfileOptional } from "@/lib/authz";
+import { verifyCsrfRequest } from "@/lib/csrf";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { optionalHttpUrlSchema, singleLineTextSchema, strictUuidSchema } from "@/lib/validation";
@@ -45,6 +47,16 @@ export async function POST(request: Request) {
     });
   }
 
+  const csrfCheck = await verifyCsrfRequest(request);
+  if (!csrfCheck.ok) {
+    return applyRateLimitHeaders(NextResponse.json({ error: "CSRF validation failed." }, { status: 403 }), {
+      limit: 60,
+      remaining: limiter.remaining,
+      resetAt: limiter.resetAt,
+      store: limiter.store
+    });
+  }
+
   const payload = await request.json().catch(() => null);
   const parsed = schema.safeParse(payload);
 
@@ -77,6 +89,14 @@ export async function POST(request: Request) {
       store: limiter.store
     });
   }
+
+  await logAuditEvent({
+    actorUserId: profile.id,
+    targetType: "video_job",
+    targetId: parsed.data.jobId,
+    action: "admin.job_status_updated",
+    metadata: buildRequestAuditMetadata(request, { status: parsed.data.status })
+  });
 
   return applyRateLimitHeaders(NextResponse.json({ ok: true }), {
     limit: 60,

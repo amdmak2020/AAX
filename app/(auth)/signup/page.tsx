@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { GoogleButton } from "@/components/auth/google-button";
+import { CsrfHiddenInput } from "@/components/security/csrf-hidden-input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -27,6 +28,7 @@ export default async function SignupPage({
         <span className="h-px flex-1 bg-pearl/10" />
       </div>
       <form className="grid gap-4" action="/api/auth/signup" method="post">
+        <CsrfHiddenInput />
         <input name="next" type="hidden" value={next} />
         <label className="grid gap-2">
           <span className="text-sm font-black">Name</span>

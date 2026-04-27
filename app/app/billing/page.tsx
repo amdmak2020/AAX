@@ -1,6 +1,7 @@
 import { PlanBadge } from "@/components/app/plan-badge";
 import { UsageMeter } from "@/components/app/usage-meter";
 import { PricingCard } from "@/components/public/pricing-card";
+import { CsrfHiddenInput } from "@/components/security/csrf-hidden-input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { planCatalog } from "@/lib/app-config";
@@ -37,6 +38,11 @@ const billingMessages = {
     tone: "border-lemon/20 bg-lemon/10",
     title: "Verify your email before billing",
     body: "Confirm your email address before starting or managing a paid plan."
+  },
+  "csrf-failed": {
+    tone: "border-coral/20 bg-coral/10",
+    title: "Refresh and try again",
+    body: "Your billing session expired before the request was sent."
   },
   failed: {
     tone: "border-coral/20 bg-coral/10",
@@ -116,6 +122,7 @@ export default async function AppBillingPage({
               <Button href="#plans">Upgrade now</Button>
             ) : (
               <form action="/api/lemonsqueezy/portal" method="post">
+                <CsrfHiddenInput />
                 <Button
                   href={!lemonCheckoutReady ? "/app/billing?portal=missing-configuration" : undefined}
                   type="submit"

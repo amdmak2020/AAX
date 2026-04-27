@@ -1,3 +1,4 @@
+import { CsrfHiddenInput } from "@/components/security/csrf-hidden-input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -21,6 +22,7 @@ export default async function ForgotPasswordPage({
         </div>
       ) : null}
       <form className="mt-6 grid gap-4" action="/api/auth/reset" method="post">
+        <CsrfHiddenInput />
         <label className="grid gap-2">
           <span className="text-sm font-black">Email</span>
           <input className="rounded-lg border border-pearl/10 bg-ink px-4 py-3" defaultValue={params.email ?? ""} name="email" type="email" required />
