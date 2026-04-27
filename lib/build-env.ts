@@ -6,16 +6,6 @@ const sharedRequiredEnv = [
   "PROCESSOR_PROVIDER"
 ] as const;
 
-const lemonRequiredEnv = [
-  "LEMONSQUEEZY_API_KEY",
-  "LEMONSQUEEZY_WEBHOOK_SECRET",
-  "LEMONSQUEEZY_STORE_ID",
-  "LEMONSQUEEZY_STORE_URL",
-  "LEMONSQUEEZY_CREATOR_VARIANT_ID",
-  "LEMONSQUEEZY_PRO_VARIANT_ID",
-  "LEMONSQUEEZY_BUSINESS_VARIANT_ID"
-] as const;
-
 export function validateProductionBuildEnv() {
   if (process.env.NODE_ENV !== "production") {
     return;
@@ -25,7 +15,7 @@ export function validateProductionBuildEnv() {
     return;
   }
 
-  const required = new Set<string>([...sharedRequiredEnv, ...lemonRequiredEnv]);
+  const required = new Set<string>([...sharedRequiredEnv]);
 
   if ((process.env.PROCESSOR_PROVIDER ?? "mock") === "n8n") {
     required.add("N8N_PROCESSOR_ENDPOINT");
