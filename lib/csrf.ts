@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { getAppUrl } from "@/lib/env";
 import { secureCompare } from "@/lib/security";
@@ -6,7 +5,8 @@ import { secureCompare } from "@/lib/security";
 export const csrfCookieName = "__Host-aax-csrf";
 
 export function createCsrfToken() {
-  return crypto.randomBytes(32).toString("hex");
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(32));
+  return Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
 }
 
 function getAllowedOrigin() {
