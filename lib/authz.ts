@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { hasRole, isEmailVerified, isRecentlyAuthenticated, normalizeRole, type AppRole } from "@/lib/access-control";
+import { areSubmissionsLocked, hasRole, isAccountSuspended, isBillingLocked, isEmailVerified, isRecentlyAuthenticated, normalizeRole, type AppRole } from "@/lib/access-control";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function getCurrentUser() {
@@ -21,12 +21,17 @@ export async function requireUser() {
 export async function getCurrentProfile() {
   const user = await requireUser();
   const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.from("profiles").select("id,email,full_name,role").eq("id", user.id).maybeSingle();
+  const { data } = await supabase.from("profiles").select("id,email,full_name,role,is_suspended,submissions_locked,billing_locked,abuse_flags,suspended_reason").eq("id", user.id).maybeSingle();
   return {
     id: user.id,
     email: user.email ?? "",
     full_name: data?.full_name ?? user.user_metadata.full_name ?? "",
-    role: normalizeRole(data?.role as AppRole | "user" | undefined)
+    role: normalizeRole(data?.role as AppRole | "user" | undefined),
+    is_suspended: data?.is_suspended ?? false,
+    submissions_locked: data?.submissions_locked ?? false,
+    billing_locked: data?.billing_locked ?? false,
+    abuse_flags: data?.abuse_flags ?? 0,
+    suspended_reason: data?.suspended_reason ?? null
   };
 }
 
@@ -37,7 +42,11 @@ export async function getCurrentProfileOptional() {
   }
 
   const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.from("profiles").select("id,email,full_name,role").eq("id", user.id).maybeSingle();
+  const { data } = await supabase
+    .from("profiles")
+    .select("id,email,full_name,role,is_suspended,submissions_locked,billing_locked,abuse_flags,suspended_reason")
+    .eq("id", user.id)
+    .maybeSingle();
 
   return {
     id: user.id,
@@ -45,7 +54,12 @@ export async function getCurrentProfileOptional() {
     full_name: data?.full_name ?? user.user_metadata.full_name ?? "",
     role: normalizeRole(data?.role as AppRole | "user" | undefined),
     email_confirmed_at: user.email_confirmed_at ?? null,
-    last_sign_in_at: user.last_sign_in_at ?? null
+    last_sign_in_at: user.last_sign_in_at ?? null,
+    is_suspended: data?.is_suspended ?? false,
+    submissions_locked: data?.submissions_locked ?? false,
+    billing_locked: data?.billing_locked ?? false,
+    abuse_flags: data?.abuse_flags ?? 0,
+    suspended_reason: data?.suspended_reason ?? null
   };
 }
 
@@ -66,4 +80,25 @@ export async function requireAdmin() {
   }
 
   return profile;
+}
+
+export function getProfileGuardNotice(profile: {
+  is_suspended?: boolean | null;
+  submissions_locked?: boolean | null;
+  billing_locked?: boolean | null;
+  suspended_reason?: string | null;
+}) {
+  if (isAccountSuspended(profile)) {
+    return profile.suspended_reason?.trim() || "Your account is temporarily suspended. Contact support if this looks wrong.";
+  }
+
+  if (areSubmissionsLocked(profile)) {
+    return "Uploads and new boost submissions are currently locked on this account.";
+  }
+
+  if (isBillingLocked(profile)) {
+    return "Billing actions are currently locked on this account.";
+  }
+
+  return null;
 }

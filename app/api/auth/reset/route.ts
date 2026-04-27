@@ -4,6 +4,7 @@ import { buildRequestAuditMetadata, hashAuditIdentifier, logAuditEvent } from "@
 import { verifyCsrfRequest } from "@/lib/csrf";
 import { getAppUrl } from "@/lib/env";
 import { applyRateLimitHeaders, enforceRateLimit, normalizeEmail } from "@/lib/request-security";
+import { logServerError } from "@/lib/secure-log";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUnexpectedFormFields, requestExceedsBytes } from "@/lib/validation";
 
@@ -56,13 +57,30 @@ export async function POST(request: Request) {
     );
   }
 
+  const ipLimiter = await enforceRateLimit({
+    request,
+    bucket: "auth:reset:ip",
+    limit: 12,
+    windowMs: 60 * 60 * 1000
+  });
+
+  if (!ipLimiter.allowed) {
+    return applyRateLimitHeaders(
+      NextResponse.redirect(
+        new URL(`/forgot-password?error=${encodeURIComponent("Too many reset requests. Please wait a bit before trying again.")}`, request.url),
+        { status: 303 }
+      ),
+      { limit: 12, remaining: ipLimiter.remaining, resetAt: ipLimiter.resetAt, retryAfterSeconds: ipLimiter.retryAfterSeconds, store: ipLimiter.store }
+    );
+  }
+
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
     redirectTo: `${getAppUrl()}/auth/callback?next=/update-password`
   });
 
   if (error) {
-    console.error("Password reset request failed", error);
+    logServerError("Password reset request failed", { error, emailHash: hashAuditIdentifier(parsed.data.email) });
   }
 
   await logAuditEvent({

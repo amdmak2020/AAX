@@ -53,3 +53,15 @@ export function isRecentlyAuthenticated(user: { last_sign_in_at?: string | null 
 
   return Date.now() - signedInAt <= maxAgeHours * 60 * 60 * 1000;
 }
+
+export function isAccountSuspended(profile: { is_suspended?: boolean | null } | null | undefined) {
+  return Boolean(profile?.is_suspended);
+}
+
+export function areSubmissionsLocked(profile: { submissions_locked?: boolean | null } | null | undefined) {
+  return Boolean(profile?.submissions_locked);
+}
+
+export function isBillingLocked(profile: { billing_locked?: boolean | null } | null | undefined) {
+  return Boolean(profile?.billing_locked);
+}

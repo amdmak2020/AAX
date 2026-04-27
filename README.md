@@ -87,6 +87,8 @@ npm run dev -- --hostname localhost --port 3001
 
 `N8N_WEBHOOK_URL` and `N8N_WEBHOOK_SECRET` are still accepted as legacy aliases if your existing external flow already uses those names.
 
+Use separate keys for development, preview / staging, and production. If a secret was pasted into chat, logs, screenshots, or a public issue, rotate it immediately and replace it in your hosting environment manager.
+
 ## Supabase setup
 
 Run the schema file in the Supabase SQL Editor. It creates:
@@ -207,9 +209,25 @@ The app now supports a shared Redis-backed rate limiter through Upstash. If thes
 
 the auth routes, boost-job creation, admin job updates, and video proxy requests use a shared rate-limit store instead of the in-memory fallback. If the Upstash envs are missing, the app still works locally with the in-memory limiter.
 
+## Email security
+
+Supabase handles email verification and password reset token lifecycle for this app, and the auth routes are rate-limited to reduce signup and reset abuse. Before production launch, also configure the sending domain with:
+
+- SPF
+- DKIM
+- DMARC
+
+Start DMARC in monitoring mode first, then tighten enforcement once you trust your deliverability and provider alignment. Do not place secrets, tokens, or internal IDs into email bodies.
+
 ## Security and database operations
 
 - App code uses the Supabase SDK and parameterized filters only. There is no string-built SQL in request handlers.
+- Keep real secrets out of Git. The repository should only contain `.env.example` with fake placeholder values. Put live secrets in Vercel, Supabase, Upstash, Lemon Squeezy, or another dedicated secret manager.
+- Only expose `NEXT_PUBLIC_*` values that are truly safe for the browser. Service-role keys, webhook secrets, auth tokens, and provider API keys must stay server-only.
+- Restrict third-party keys wherever the provider supports it:
+  - origin / domain restrictions for browser-safe keys
+  - narrow scopes for API keys
+  - IP or webhook-specific restrictions when available
 - User-facing reads stay behind Supabase Auth + RLS. Keep the `SUPABASE_SERVICE_ROLE_KEY` server-only and use it only for privileged server actions, background sync, and verified webhooks.
 - The app already uses UUIDs for user, subscription, and job identifiers. Avoid replacing them with sequential public ids.
 - If you ever store third-party user secrets or tokens in Postgres, encrypt them before insert and decrypt only on the server.
@@ -219,6 +237,7 @@ the auth routes, boost-job creation, admin job updates, and video proxy requests
   - do not expose service-role powered APIs to the browser
 - Run the SQL in [schema.sql](C:/Users/asus/Documents/Codex/2026-04-20-i-want-to-build-a-saas/supabase/schema.sql) after schema changes. It now hardens both the newer `boost_jobs` schema and the legacy `video_jobs` / `subscriptions` tables with extra constraints and indexes.
 - Turn on Supabase backups / PITR for production, and schedule restore drills. Backups are not enough until you have actually restored to a fresh instance and verified the app can boot against it.
+- The admin area includes abuse controls so you can suspend an account, lock submissions, lock billing, and flag suspicious users without touching SQL manually.
 
 ## Admin
 

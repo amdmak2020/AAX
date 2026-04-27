@@ -16,6 +16,14 @@ export type SubscriptionSnapshot = {
 
 export type SubscriptionStatus = "free" | "trialing" | "active" | "past_due" | "cancelled" | "expired" | "refunded" | "paused";
 
+export type ProfileSecuritySnapshot = {
+  is_suspended: boolean;
+  submissions_locked: boolean;
+  billing_locked: boolean;
+  abuse_flags: number;
+  suspended_reason: string | null;
+};
+
 function normalizeSubscriptionStatus(input: unknown, planKey: PlanKey): SubscriptionStatus {
   const normalized = typeof input === "string" ? input.toLowerCase().trim() : "";
 
@@ -41,6 +49,19 @@ function makeFreeSubscriptionSnapshot(userId: string): SubscriptionSnapshot {
     stripe_customer_id: null,
     stripe_subscription_id: null,
     current_period_end: null
+  };
+}
+
+export function normalizeProfileSecurityRow(row: Record<string, unknown> | null | undefined): ProfileSecuritySnapshot {
+  return {
+    is_suspended: row?.is_suspended === true,
+    submissions_locked: row?.submissions_locked === true,
+    billing_locked: row?.billing_locked === true,
+    abuse_flags:
+      typeof row?.abuse_flags === "number" && Number.isFinite(row.abuse_flags) && row.abuse_flags >= 0
+        ? Math.floor(row.abuse_flags)
+        : 0,
+    suspended_reason: typeof row?.suspended_reason === "string" ? row.suspended_reason.slice(0, 160) : null
   };
 }
 

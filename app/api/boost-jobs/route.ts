@@ -2,7 +2,8 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { planCatalog, sourceUploadMaxMb, type PlanKey } from "@/lib/app-config";
-import { ensureAccountRecords, updateSubscriptionUsage } from "@/lib/account-bootstrap";
+import { ensureAccountRecords, normalizeProfileSecurityRow, updateSubscriptionUsage } from "@/lib/account-bootstrap";
+import { areSubmissionsLocked, isAccountSuspended } from "@/lib/access-control";
 import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
 import { verifyCsrfRequest } from "@/lib/csrf";
 import { bypassUsageLimits, getAppUrl } from "@/lib/env";
@@ -11,6 +12,7 @@ import { reserveIdempotencyKey } from "@/lib/idempotency";
 import { parseSafeRemoteUrl } from "@/lib/network-security";
 import { getProcessorProvider } from "@/lib/processor/provider";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
+import { logServerError } from "@/lib/secure-log";
 import { uploadSourceVideo } from "@/lib/storage/supabase-storage";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -139,6 +141,21 @@ export async function POST(request: Request) {
       return NextResponse.redirect(new URL("/login?next=/app/create", request.url), { status: 303 });
     }
 
+    const profileGuardResult = await supabase
+      .from("profiles")
+      .select("is_suspended,submissions_locked,suspended_reason,abuse_flags")
+      .eq("id", user.id)
+      .maybeSingle();
+    const profileGuard = normalizeProfileSecurityRow(profileGuardResult.data as Record<string, unknown> | null | undefined);
+
+    if (isAccountSuspended(profileGuard)) {
+      return respondWithCreateError(request, "account_suspended", profileGuard.suspended_reason ?? "Your account is suspended. Contact support for help.", 403);
+    }
+
+    if (areSubmissionsLocked(profileGuard)) {
+      return respondWithCreateError(request, "submissions_locked", "New boost submissions are currently locked on this account.", 403);
+    }
+
     const limiter = await enforceRateLimit({
       request,
       bucket: "boost-jobs:create",
@@ -248,7 +265,7 @@ export async function POST(request: Request) {
     });
 
     if (insert.error) {
-      console.error("Boost job insert failed", insert.error);
+      logServerError("Boost job insert failed", { reason: insert.error.message, userId: user.id, jobId });
       return applyRateLimitHeaders(respondWithCreateError(request, "generic", "We couldn't save that submission right now.", 500), {
         limit: 12,
         remaining: limiter.remaining,
@@ -275,7 +292,7 @@ export async function POST(request: Request) {
         nextCreditsUsed: subscription.credits_used + 1
       });
     } catch (error) {
-      console.error("Boost job usage update failed", error);
+      logServerError("Boost job usage update failed", { error, userId: user.id, jobId });
       return applyRateLimitHeaders(respondWithCreateError(request, "usage_update_failed", "We couldn't reserve a credit for that clip.", 500), {
         limit: 12,
         remaining: limiter.remaining,
@@ -292,7 +309,7 @@ export async function POST(request: Request) {
     });
 
     if (usageLedgerInsert.error) {
-      console.error("Usage ledger insert failed", usageLedgerInsert.error);
+      logServerError("Usage ledger insert failed", { reason: usageLedgerInsert.error.message, userId: user.id, jobId });
       return applyRateLimitHeaders(respondWithCreateError(request, "usage_update_failed", "We couldn't finalize the credit reservation.", 500), {
         limit: 12,
         remaining: limiter.remaining,
@@ -339,7 +356,7 @@ export async function POST(request: Request) {
       store: limiter.store
     });
   } catch (error) {
-    console.error("Boost job creation failed", error);
+    logServerError("Boost job creation failed", { error });
     return respondWithCreateError(request, "generic", "The boost did not start. Please try again.", 500);
   }
 }

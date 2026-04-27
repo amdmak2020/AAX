@@ -64,6 +64,22 @@ export async function POST(request: Request) {
     );
   }
 
+  const ipLimiter = await enforceRateLimit({
+    request,
+    bucket: "auth:signup:ip",
+    limit: 12,
+    windowMs: 60 * 60 * 1000
+  });
+
+  if (!ipLimiter.allowed) {
+    return applyRateLimitHeaders(
+      NextResponse.redirect(new URL(`/signup?error=${encodeURIComponent("Too many sign-up attempts. Please wait a bit and try again.")}`, request.url), {
+        status: 303
+      }),
+      { limit: 12, remaining: ipLimiter.remaining, resetAt: ipLimiter.resetAt, retryAfterSeconds: ipLimiter.retryAfterSeconds, store: ipLimiter.store }
+    );
+  }
+
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.signUp({
     email: parsed.data.email,

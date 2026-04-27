@@ -9,6 +9,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requestExceedsBytes, strictUuidSchema } from "@/lib/validation";
 import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
 import { finalizePersistentWebhookEvent, reservePersistentWebhookEvent } from "@/lib/webhook-ledger";
+import { logServerError } from "@/lib/secure-log";
 
 const maxLemonWebhookBytes = 256 * 1024;
 const stringOrNumberSchema = z.union([z.string(), z.number()]);
@@ -116,7 +117,7 @@ export async function POST(request: Request) {
 
     const secret = getLemonSqueezyWebhookSecret();
     if (!secret) {
-      console.error("Lemon Squeezy webhook is missing a signing secret.");
+      logServerError("Lemon Squeezy webhook is missing a signing secret.");
       return applyRateLimitHeaders(NextResponse.json({ error: "Webhook processing failed." }, { status: 500 }), {
         limit: 240,
         remaining: limiter.remaining,
@@ -287,7 +288,7 @@ export async function POST(request: Request) {
       store: limiter.store
     });
   } catch (error) {
-    console.error("Lemon Squeezy webhook error", error);
+    logServerError("Lemon Squeezy webhook error", { error, targetUserId, eventName, webhookId });
     await finalizePersistentWebhookEvent({
       ledgerId,
       status: "failed",

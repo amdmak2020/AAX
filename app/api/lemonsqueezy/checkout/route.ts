@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { planCatalog, type PlanKey } from "@/lib/app-config";
-import { isEmailVerified } from "@/lib/access-control";
+import { isBillingLocked, isEmailVerified, isAccountSuspended } from "@/lib/access-control";
 import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
 import { getViewerWorkspace } from "@/lib/app-data";
 import { verifyCsrfRequest } from "@/lib/csrf";
 import { getAppUrl, getLemonSqueezyStoreId, getLemonSqueezyVariantId, hasLemonSqueezyCheckoutConfig } from "@/lib/env";
 import { reserveIdempotencyKey } from "@/lib/idempotency";
 import { createLemonSqueezyCheckout } from "@/lib/lemonsqueezy";
+import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
+import { logServerError } from "@/lib/secure-log";
 import { getUnexpectedFormFields, requestExceedsBytes } from "@/lib/validation";
 
 const checkoutSchema = z.object({
@@ -41,6 +43,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing plan checkout configuration" }, { status: 400 });
   }
 
+  const ipLimiter = await enforceRateLimit({
+    request,
+    bucket: "billing:checkout:ip",
+    limit: 20,
+    windowMs: 60 * 60 * 1000
+  });
+
+  if (!ipLimiter.allowed) {
+    return applyRateLimitHeaders(NextResponse.redirect(`${getAppUrl()}/app/billing?checkout=rate-limited`, { status: 303 }), {
+      limit: 20,
+      remaining: ipLimiter.remaining,
+      resetAt: ipLimiter.resetAt,
+      retryAfterSeconds: ipLimiter.retryAfterSeconds,
+      store: ipLimiter.store
+    });
+  }
+
   const planKey = parsed.data.planKey as Exclude<PlanKey, "free">;
 
   if (!hasLemonSqueezyCheckoutConfig()) {
@@ -50,6 +69,32 @@ export async function POST(request: Request) {
   const workspace = await getViewerWorkspace();
   if (!workspace) {
     return NextResponse.redirect(`${getAppUrl()}/login?next=/app/billing`, { status: 303 });
+  }
+
+  if (isAccountSuspended(workspace.profile)) {
+    return NextResponse.redirect(`${getAppUrl()}/app/billing?checkout=account-suspended`, { status: 303 });
+  }
+
+  if (isBillingLocked(workspace.profile)) {
+    return NextResponse.redirect(`${getAppUrl()}/app/billing?checkout=billing-locked`, { status: 303 });
+  }
+
+  const userLimiter = await enforceRateLimit({
+    request,
+    bucket: "billing:checkout:user",
+    key: workspace.profile.id,
+    limit: 8,
+    windowMs: 60 * 60 * 1000
+  });
+
+  if (!userLimiter.allowed) {
+    return applyRateLimitHeaders(NextResponse.redirect(`${getAppUrl()}/app/billing?checkout=rate-limited`, { status: 303 }), {
+      limit: 8,
+      remaining: userLimiter.remaining,
+      resetAt: userLimiter.resetAt,
+      retryAfterSeconds: userLimiter.retryAfterSeconds,
+      store: userLimiter.store
+    });
   }
 
   if (!workspace.profile.email || !isEmailVerified({ email_confirmed_at: workspace.profile.email_confirmed_at ?? null })) {
@@ -93,7 +138,7 @@ export async function POST(request: Request) {
 
     return NextResponse.redirect(checkoutUrl, { status: 303 });
   } catch (error) {
-    console.error("Lemon Squeezy checkout error", error);
+    logServerError("Lemon Squeezy checkout error", { error, userId: workspace.profile.id, planKey });
     await logAuditEvent({
       actorUserId: workspace.profile.id,
       targetType: "subscription",

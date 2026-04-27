@@ -42,6 +42,11 @@ type ViewerProfile = {
   role: AppRole;
   email_confirmed_at: string | null;
   last_sign_in_at: string | null;
+  is_suspended: boolean;
+  submissions_locked: boolean;
+  billing_locked: boolean;
+  abuse_flags: number;
+  suspended_reason: string | null;
 };
 
 type ViewerWorkspace = {
@@ -90,7 +95,12 @@ export async function getViewerWorkspace(): Promise<ViewerWorkspace | null> {
         full_name: "Demo Creator",
         role: "admin",
         email_confirmed_at: new Date().toISOString(),
-        last_sign_in_at: new Date().toISOString()
+        last_sign_in_at: new Date().toISOString(),
+        is_suspended: false,
+        submissions_locked: false,
+        billing_locked: false,
+        abuse_flags: 0,
+        suspended_reason: null
       },
       subscription: {
         plan_key: "free" as PlanKey,
@@ -117,7 +127,11 @@ export async function getViewerWorkspace(): Promise<ViewerWorkspace | null> {
   const ensuredSubscription = await ensureAccountRecords(user);
 
   const [profileResult, subscriptionResult, jobsResult] = await Promise.all([
-    supabase.from("profiles").select("id,email,full_name,role").eq("id", user.id).maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("id,email,full_name,role,is_suspended,submissions_locked,billing_locked,abuse_flags,suspended_reason")
+      .eq("id", user.id)
+      .maybeSingle(),
     supabase.from("subscriptions").select("*").eq("user_id", user.id).maybeSingle(),
     supabase
       .from("video_jobs")
@@ -136,7 +150,12 @@ export async function getViewerWorkspace(): Promise<ViewerWorkspace | null> {
       full_name: sanitizeSingleLineText(profileResult.data?.full_name ?? "").slice(0, 120),
       role: normalizeRole((profileResult.data?.role as AppRole | "user" | undefined) ?? "user"),
       email_confirmed_at: user.email_confirmed_at ?? null,
-      last_sign_in_at: user.last_sign_in_at ?? null
+      last_sign_in_at: user.last_sign_in_at ?? null,
+      is_suspended: profileResult.data?.is_suspended ?? false,
+      submissions_locked: profileResult.data?.submissions_locked ?? false,
+      billing_locked: profileResult.data?.billing_locked ?? false,
+      abuse_flags: profileResult.data?.abuse_flags ?? 0,
+      suspended_reason: profileResult.data?.suspended_reason ?? null
     } satisfies ViewerProfile,
     subscription:
       subscriptionResult.data
@@ -163,7 +182,11 @@ export async function getBoostJobForViewer(id: string) {
 export async function getAdminOverview() {
   const admin = createSupabaseAdminClient();
   const [users, jobs, subscriptions] = await Promise.all([
-    admin.from("profiles").select("id,email,full_name,role,created_at").order("created_at", { ascending: false }).limit(30),
+    admin
+      .from("profiles")
+      .select("id,email,full_name,role,created_at,is_suspended,submissions_locked,billing_locked,abuse_flags,suspended_reason")
+      .order("created_at", { ascending: false })
+      .limit(30),
     admin
       .from("video_jobs")
       .select(

@@ -14,6 +14,11 @@ create table public.profiles (
   full_name text,
   avatar_url text,
   role app_role not null default 'owner',
+  is_suspended boolean not null default false,
+  submissions_locked boolean not null default false,
+  billing_locked boolean not null default false,
+  abuse_flags integer not null default 0 check (abuse_flags >= 0),
+  suspended_reason text check (suspended_reason is null or char_length(suspended_reason) <= 160),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -280,6 +285,7 @@ begin
     where table_schema = 'public' and table_name = 'profiles'
   ) then
     create index if not exists profiles_role_idx on public.profiles(role);
+    create index if not exists profiles_suspension_idx on public.profiles(is_suspended, submissions_locked, billing_locked);
 
     if not exists (select 1 from pg_constraint where conname = 'profiles_email_length') then
       alter table public.profiles
@@ -291,6 +297,18 @@ begin
       alter table public.profiles
       add constraint profiles_full_name_length
       check (full_name is null or char_length(full_name) <= 120);
+    end if;
+
+    if not exists (select 1 from pg_constraint where conname = 'profiles_abuse_flags_nonnegative') then
+      alter table public.profiles
+      add constraint profiles_abuse_flags_nonnegative
+      check (abuse_flags >= 0);
+    end if;
+
+    if not exists (select 1 from pg_constraint where conname = 'profiles_suspended_reason_length') then
+      alter table public.profiles
+      add constraint profiles_suspended_reason_length
+      check (suspended_reason is null or char_length(suspended_reason) <= 160);
     end if;
   end if;
 

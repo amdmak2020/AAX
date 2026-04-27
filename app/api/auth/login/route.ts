@@ -59,6 +59,22 @@ export async function POST(request: Request) {
     );
   }
 
+  const ipLimiter = await enforceRateLimit({
+    request,
+    bucket: "auth:login:ip",
+    limit: 25,
+    windowMs: 30 * 60 * 1000
+  });
+
+  if (!ipLimiter.allowed) {
+    return applyRateLimitHeaders(
+      NextResponse.redirect(new URL(`/login?error=${encodeURIComponent("Too many login attempts. Try again in a few minutes.")}`, request.url), {
+        status: 303
+      }),
+      { limit: 25, remaining: ipLimiter.remaining, resetAt: ipLimiter.resetAt, retryAfterSeconds: ipLimiter.retryAfterSeconds, store: ipLimiter.store }
+    );
+  }
+
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signInWithPassword({ email: parsed.data.email, password: parsed.data.password });
 
