@@ -29,7 +29,7 @@ export function redirectWithPath(requestUrl: string, path: string, status = 303)
 
 export function secureCompare(secret: string | null | undefined, incoming: string | null | undefined) {
   if (!secret) {
-    return true;
+    return false;
   }
 
   if (!incoming) {
