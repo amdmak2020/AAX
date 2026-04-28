@@ -1,8 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+function getGoogleDriveId(url: string) {
+  return url.match(/[?&]id=([^&]+)/)?.[1] ?? url.match(/\/file\/d\/([^/]+)/)?.[1] ?? null;
+}
+
+function getGoogleDriveDirectDownloadUrl(url: string) {
+  const id = getGoogleDriveId(url);
+  if (!id) return null;
+  return `https://drive.usercontent.google.com/download?id=${encodeURIComponent(id)}&export=download&confirm=t`;
+}
 
 function getProxyUrl(url: string) {
   return `/api/video/proxy?url=${encodeURIComponent(url)}`;
@@ -11,7 +21,30 @@ function getProxyUrl(url: string) {
 export function VideoPreview({ outputUrl }: { outputUrl?: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [previewFailed, setPreviewFailed] = useState(false);
-  const proxyUrl = useMemo(() => (outputUrl ? getProxyUrl(outputUrl) : null), [outputUrl]);
+  const [sourceIndex, setSourceIndex] = useState(0);
+  const candidateSources = useMemo(() => {
+    if (!outputUrl) return [];
+
+    const candidates = [outputUrl];
+    const driveDirect = getGoogleDriveDirectDownloadUrl(outputUrl);
+    if (driveDirect && !candidates.includes(driveDirect)) {
+      candidates.push(driveDirect);
+    }
+
+    const proxyUrl = getProxyUrl(outputUrl);
+    if (!candidates.includes(proxyUrl)) {
+      candidates.push(proxyUrl);
+    }
+
+    return candidates;
+  }, [outputUrl]);
+  const activeSource = candidateSources[sourceIndex] ?? null;
+
+  useEffect(() => {
+    setSourceIndex(0);
+    setIsLoading(true);
+    setPreviewFailed(false);
+  }, [outputUrl]);
 
   if (!outputUrl) {
     return (
@@ -27,7 +60,7 @@ export function VideoPreview({ outputUrl }: { outputUrl?: string }) {
   return (
     <div className="flex h-full flex-col">
       <div className="min-h-0 flex-1 bg-black">
-        {proxyUrl && !previewFailed ? (
+        {activeSource && !previewFailed ? (
           <div className="relative h-full">
             {isLoading ? (
               <div className="absolute inset-0 z-10 flex h-full flex-col items-center justify-center bg-black/90 p-6 text-center">
@@ -38,13 +71,20 @@ export function VideoPreview({ outputUrl }: { outputUrl?: string }) {
             ) : null}
             <video
               autoPlay
+              key={activeSource}
               className="h-full w-full object-contain"
               controls
               playsInline
-              src={proxyUrl}
+              src={activeSource}
               onCanPlay={() => setIsLoading(false)}
               onLoadedData={() => setIsLoading(false)}
               onError={() => {
+                if (sourceIndex < candidateSources.length - 1) {
+                  setSourceIndex((current) => current + 1);
+                  setIsLoading(true);
+                  return;
+                }
+
                 setIsLoading(false);
                 setPreviewFailed(true);
               }}
