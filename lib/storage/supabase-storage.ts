@@ -54,8 +54,7 @@ async function ensureOutputVideosBucket() {
   }
 
   const { error: createError } = await supabase.storage.createBucket(OUTPUT_VIDEOS_BUCKET, {
-    public: false,
-    fileSizeLimit: "250MB"
+    public: false
   });
 
   if (createError && !createError.message.toLowerCase().includes("already exists")) {
