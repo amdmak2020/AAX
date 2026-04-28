@@ -5,8 +5,9 @@ import type { BoostJob } from "@/lib/boost-jobs";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
+import { toUserFacingJobErrorMessage } from "@/lib/job-errors";
 import { materializeRemoteOutputVideo, resolveStoredOutputVideoUrl } from "@/lib/storage/supabase-storage";
-import { sanitizeMultilineText, sanitizeSingleLineText } from "@/lib/validation";
+import { sanitizeSingleLineText } from "@/lib/validation";
 
 type SubscriptionRow = {
   plan_key: PlanKey;
@@ -80,7 +81,7 @@ async function mapBoostJob(row: BoostJobRow): Promise<BoostJob> {
     sourceFileName: null,
     outputVideoUrl: resolvedOutputUrl,
     outputPosterUrl: null,
-    errorMessage: row.error_message ? sanitizeMultilineText(row.error_message).slice(0, 600) : null,
+    errorMessage: toUserFacingJobErrorMessage(row.error_message),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     completedAt: row.completed_at ?? null,
