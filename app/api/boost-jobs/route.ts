@@ -91,6 +91,9 @@ function isSupportedSourceUrl(input: string) {
 }
 
 export async function POST(request: Request) {
+  let reservedCredit = false;
+  let createdJobId: string | null = null;
+  let createdUserId: string | null = null;
   try {
     if (requestExceedsBytes(request, MAX_CREATE_REQUEST_BYTES)) {
       return respondWithCreateError(request, "request_too_large", `Uploads are currently limited to ${sourceUploadMaxMb}MB.`, 413);
@@ -261,6 +264,8 @@ export async function POST(request: Request) {
     }
 
     const jobId = randomUUID();
+    createdJobId = jobId;
+    createdUserId = user.id;
     const source =
       useFileSource && file
         ? await uploadSourceVideo({ userId: user.id, jobId, file })
@@ -330,6 +335,7 @@ export async function POST(request: Request) {
           }
         );
       }
+      reservedCredit = true;
     } catch (error) {
       logServerError("Boost job usage update failed", { error, userId: user.id, jobId });
       await sendOperationalAlert({
@@ -418,6 +424,25 @@ export async function POST(request: Request) {
       store: limiter.store
     });
   } catch (error) {
+    if (reservedCredit && createdJobId && createdUserId) {
+      try {
+        await refundReservedCreditForJob({
+          jobId: createdJobId,
+          userId: createdUserId,
+          reason: "processor_unavailable",
+          request,
+          actorUserId: createdUserId,
+          note: "automatic_refund_after_unexpected_create_failure"
+        });
+      } catch (refundError) {
+        logServerError("Automatic refund after unexpected boost create failure failed", {
+          error: refundError,
+          userId: createdUserId,
+          jobId: createdJobId
+        });
+      }
+    }
+
     logServerError("Boost job creation failed", { error });
     await sendOperationalAlert({
       code: "boost-job-create-failed",
