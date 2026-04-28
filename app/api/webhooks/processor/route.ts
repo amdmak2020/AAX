@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
 import { getProcessorProvider } from "@/lib/processor/provider";
+import { refundReservedCreditForJob } from "@/lib/credits";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getN8nProcessorSecret } from "@/lib/env";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
@@ -116,6 +117,9 @@ export async function POST(request: Request) {
     });
   }
 
+  const jobLookup = await admin.from("video_jobs").select("user_id").eq("id", targetId).maybeSingle();
+  const targetUserId = typeof jobLookup.data?.user_id === "string" ? jobLookup.data.user_id : null;
+
   const update = await admin
     .from("video_jobs")
     .update({
@@ -174,6 +178,18 @@ export async function POST(request: Request) {
   });
 
   if (parsed.data.status === "failed") {
+    if (targetUserId) {
+      try {
+        await refundReservedCreditForJob({
+          jobId: targetId,
+          userId: targetUserId,
+          reason: "processor_failed",
+          request
+        });
+      } catch (refundError) {
+        logServerError("Processor failure refund failed", { error: refundError, targetId, targetUserId });
+      }
+    }
     await sendOperationalAlert({
       code: "processor-job-failed",
       severity: "warning",

@@ -1,11 +1,12 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { planCatalog, sourceUploadMaxMb, type PlanKey } from "@/lib/app-config";
-import { ensureAccountRecords, normalizeProfileSecurityRow, updateSubscriptionUsage } from "@/lib/account-bootstrap";
-import { areSubmissionsLocked, isAccountSuspended } from "@/lib/access-control";
+import { planCatalog, sourceUploadMaxMb } from "@/lib/app-config";
+import { ensureAccountRecords, normalizeProfileSecurityRow, reserveSubscriptionCredit } from "@/lib/account-bootstrap";
+import { areSubmissionsLocked, isAccountSuspended, isBillingLocked } from "@/lib/access-control";
 import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
 import { verifyCsrfRequest } from "@/lib/csrf";
+import { refundReservedCreditForJob } from "@/lib/credits";
 import { bypassUsageLimits, getAppUrl } from "@/lib/env";
 import { detectVideoFileType } from "@/lib/file-security";
 import { reserveIdempotencyKey } from "@/lib/idempotency";
@@ -144,7 +145,7 @@ export async function POST(request: Request) {
 
     const profileGuardResult = await supabase
       .from("profiles")
-      .select("is_suspended,submissions_locked,suspended_reason,abuse_flags")
+      .select("is_suspended,submissions_locked,billing_locked,suspended_reason,abuse_flags")
       .eq("id", user.id)
       .maybeSingle();
     const profileGuard = normalizeProfileSecurityRow(profileGuardResult.data as Record<string, unknown> | null | undefined);
@@ -155,6 +156,10 @@ export async function POST(request: Request) {
 
     if (areSubmissionsLocked(profileGuard)) {
       return respondWithCreateError(request, "submissions_locked", "New boost submissions are currently locked on this account.", 403);
+    }
+
+    if (isBillingLocked(profileGuard)) {
+      return respondWithCreateError(request, "billing_locked", "Billing controls are locked on this account. Contact support for help.", 403);
     }
 
     const limiter = await enforceRateLimit({
@@ -185,14 +190,18 @@ export async function POST(request: Request) {
     }
 
     const admin = createSupabaseAdminClient();
-    const subscription = (await ensureAccountRecords(user)) as {
-      id: string | null;
-      plan_key: PlanKey;
-      credits_total: number;
-      credits_used: number;
-    };
+    const subscription = await ensureAccountRecords(user);
     const plan = planCatalog[subscription.plan_key];
     const usageBypassed = bypassUsageLimits();
+    const hasValidPaidAccess =
+      subscription.plan_key === "free" || subscription.status === "active" || subscription.status === "trialing";
+
+    if (!hasValidPaidAccess) {
+      return applyRateLimitHeaders(
+        respondWithCreateError(request, "inactive_plan", "Your plan is not active right now. Update billing before starting another boost.", 402),
+        { limit: 12, remaining: limiter.remaining, resetAt: limiter.resetAt, store: limiter.store }
+      );
+    }
 
     if (!usageBypassed && subscription.credits_used >= subscription.credits_total) {
       return applyRateLimitHeaders(
@@ -301,11 +310,23 @@ export async function POST(request: Request) {
     });
 
     try {
-      await updateSubscriptionUsage({
+      const reserved = await reserveSubscriptionCredit({
         subscriptionId: subscription.id,
         userId: user.id,
-        nextCreditsUsed: subscription.credits_used + 1
+        currentCreditsUsed: subscription.credits_used,
+        creditsTotal: subscription.credits_total
       });
+      if (!reserved) {
+        return applyRateLimitHeaders(
+          respondWithCreateError(request, "usage_conflict", "That credit just changed. Refresh and try again.", 409),
+          {
+            limit: 12,
+            remaining: limiter.remaining,
+            resetAt: limiter.resetAt,
+            store: limiter.store
+          }
+        );
+      }
     } catch (error) {
       logServerError("Boost job usage update failed", { error, userId: user.id, jobId });
       await sendOperationalAlert({
@@ -377,6 +398,21 @@ export async function POST(request: Request) {
         updated_at: new Date().toISOString()
       })
       .eq("id", jobId);
+
+    if (!submit.accepted) {
+      try {
+        await refundReservedCreditForJob({
+          jobId,
+          userId: user.id,
+          reason: "processor_unavailable",
+          request,
+          actorUserId: user.id,
+          note: submit.message ?? null
+        });
+      } catch (refundError) {
+        logServerError("Failed to refund credit after processor rejection", { error: refundError, userId: user.id, jobId });
+      }
+    }
 
     return applyRateLimitHeaders(NextResponse.redirect(new URL(`/app/jobs/${jobId}`, request.url), { status: 303 }), {
       limit: 12,

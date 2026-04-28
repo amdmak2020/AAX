@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ClickSpark } from "@/components/effects/click-spark";
+import { CookieNotice } from "@/components/public/cookie-notice";
 import { brand } from "@/lib/app-config";
 import { marketingCopy } from "@/lib/product";
 import "./globals.css";
@@ -81,6 +82,7 @@ export default function RootLayout({
         <ClickSpark sparkColor="#fffaf0" sparkSize={7} sparkRadius={18} sparkCount={7} duration={420}>
           {children}
         </ClickSpark>
+        <CookieNotice />
       </body>
     </html>
   );

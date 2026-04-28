@@ -106,6 +106,64 @@ export async function updateSubscriptionUsage(params: { subscriptionId: string |
   }
 }
 
+export async function reserveSubscriptionCredit(params: {
+  subscriptionId: string | null;
+  userId: string;
+  currentCreditsUsed: number;
+  creditsTotal: number;
+}) {
+  if (!params.subscriptionId) {
+    return false;
+  }
+
+  const admin = createSupabaseAdminClient();
+  const update = await admin
+    .from("subscriptions")
+    .update({
+      credits_used: params.currentCreditsUsed + 1,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", params.subscriptionId)
+    .eq("credits_used", params.currentCreditsUsed)
+    .lt("credits_used", params.creditsTotal)
+    .select("id")
+    .maybeSingle();
+
+  if (update.error) {
+    throw new Error(update.error.message);
+  }
+
+  return Boolean(update.data?.id);
+}
+
+export async function refundSubscriptionCredit(params: {
+  subscriptionId: string | null;
+  currentCreditsUsed: number;
+}) {
+  if (!params.subscriptionId || params.currentCreditsUsed <= 0) {
+    return false;
+  }
+
+  const admin = createSupabaseAdminClient();
+  const update = await admin
+    .from("subscriptions")
+    .update({
+      credits_used: params.currentCreditsUsed - 1,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", params.subscriptionId)
+    .eq("credits_used", params.currentCreditsUsed)
+    .gt("credits_used", 0)
+    .select("id")
+    .maybeSingle();
+
+  if (update.error) {
+    throw new Error(update.error.message);
+  }
+
+  return Boolean(update.data?.id);
+}
+
 export async function updateSubscriptionPlan(params: {
   userId: string;
   customerId: string | null;
