@@ -4,8 +4,8 @@
 
 :root {
   color-scheme: dark;
-  --background: #080808;
-  --foreground: #fffaf0;
+  --background: #091018;
+  --foreground: #f6f2ea;
 }
 
 * {
@@ -19,7 +19,9 @@ html {
 body {
   min-height: 100vh;
   margin: 0;
-  background: #0b0d10;
+  background:
+    radial-gradient(circle at top, rgba(58, 135, 190, 0.08), transparent 28%),
+    linear-gradient(180deg, #091018 0%, #0c1219 36%, #0b1016 100%);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
@@ -85,6 +87,12 @@ select:focus {
 .hero-aurora {
   position: relative;
   overflow: hidden;
+  border-radius: 18px;
+  background:
+    linear-gradient(140deg, rgba(20, 19, 34, 0.96) 0%, rgba(10, 20, 28, 0.96) 52%, rgba(8, 32, 36, 0.92) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 32px 80px rgba(0, 0, 0, 0.24);
 }
 
 .hero-aurora::before {
@@ -93,11 +101,23 @@ select:focus {
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(circle at 18% 24%, rgba(160, 59, 255, 0.15), transparent 26%),
-    radial-gradient(circle at 82% 16%, rgba(33, 200, 255, 0.14), transparent 22%),
-    radial-gradient(circle at 58% 78%, rgba(85, 217, 255, 0.08), transparent 20%);
-  filter: blur(20px);
+    radial-gradient(circle at 16% 26%, rgba(130, 88, 255, 0.14), transparent 26%),
+    radial-gradient(circle at 84% 18%, rgba(60, 191, 230, 0.12), transparent 24%),
+    radial-gradient(circle at 54% 78%, rgba(98, 223, 200, 0.08), transparent 20%);
+  filter: blur(26px);
   animation: hero-breathe 8s ease-in-out infinite;
+}
+
+.hero-aurora::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.04) 24%, transparent 52%),
+    radial-gradient(circle at var(--hero-glow-x, 50%) var(--hero-glow-y, 18%), rgba(118, 208, 255, 0.09), transparent 24%);
+  opacity: 0.75;
+  animation: hero-sheen 10s ease-in-out infinite;
 }
 
 @keyframes hero-breathe {
@@ -110,6 +130,19 @@ select:focus {
   50% {
     opacity: 1;
     transform: scale(1.02);
+  }
+}
+
+@keyframes hero-sheen {
+  0%,
+  100% {
+    transform: translateX(-3%);
+    opacity: 0.55;
+  }
+
+  50% {
+    transform: translateX(3%);
+    opacity: 0.9;
   }
 }
 
@@ -227,7 +260,7 @@ select:focus {
   z-index: -1;
   opacity: 0.28;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(160, 59, 255, 0.6), rgba(33, 200, 255, 0.8));
+  background: linear-gradient(90deg, rgba(116, 86, 228, 0.52), rgba(76, 198, 214, 0.62));
   filter: blur(10px);
   animation: hero-underline 3.8s ease-in-out infinite;
 }
@@ -341,10 +374,11 @@ select:focus {
   gap: 4px;
   border-radius: 8px;
   border: 1px solid rgba(255, 250, 240, 0.08);
-  background: rgba(255, 250, 240, 0.03);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.025));
   padding: 16px 18px;
   text-align: left;
   animation: stat-card-float 7s ease-in-out infinite;
+  backdrop-filter: blur(12px);
 }
 
 .hero-stat-card:nth-child(2) {
@@ -586,7 +620,7 @@ select:focus {
 
 .interactive-card:hover {
   border-color: rgba(255, 250, 240, 0.14);
-  background: rgba(255, 250, 240, 0.07);
+  background: rgba(255, 250, 240, 0.055);
   box-shadow: 0 22px 48px rgba(0, 0, 0, 0.24);
 }
 
@@ -607,6 +641,67 @@ select:focus {
 
 .interactive-lift {
   animation: card-drift 8s ease-in-out infinite;
+}
+
+.hero-tool-shell {
+  position: relative;
+  animation: hero-tool-float 6.4s ease-in-out infinite;
+}
+
+.hero-tool-shell::before {
+  content: "";
+  position: absolute;
+  inset: -16px 8% auto;
+  height: 72px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(76, 198, 214, 0.14), rgba(76, 198, 214, 0));
+  filter: blur(28px);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.hero-tool-note {
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-tool-note::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 20%, rgba(255, 255, 255, 0.06) 50%, transparent 80%);
+  transform: translateX(-140%);
+  animation: note-sheen 7.8s ease-in-out infinite;
+}
+
+@keyframes hero-tool-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes note-sheen {
+  0%,
+  100% {
+    transform: translateX(-140%);
+    opacity: 0;
+  }
+
+  18%,
+  52% {
+    opacity: 1;
+  }
+
+  70% {
+    transform: translateX(140%);
+    opacity: 0;
+  }
 }
 
 @keyframes card-drift {
@@ -919,6 +1014,10 @@ select:focus {
   cursor: default;
 }
 
+.faq-card:hover p {
+  color: rgba(255, 250, 240, 0.78);
+}
+
 .faq-icon {
   display: inline-flex;
   align-items: center;
@@ -998,5 +1097,24 @@ select:focus {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  .hero-aurora {
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-aurora {
+    min-height: calc(100vh - 84px);
+  }
+
+  .compact-dropzone label {
+    min-height: 188px;
+    padding-top: 20px;
+    padding-bottom: 20px;
   }
 }

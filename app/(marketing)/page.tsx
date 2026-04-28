@@ -64,28 +64,31 @@ export default async function HomePage() {
         {JSON.stringify(structuredData)}
       </Script>
       <section className="border-b border-pearl/10">
-        <div className="hero-aurora mx-auto max-w-6xl px-5 py-16 md:py-20">
+        <div className="hero-aurora mx-auto max-w-[88rem] px-5 py-7 md:py-8">
           <div className="hero-orbit" aria-hidden="true">
             <span className="hero-orbit-ring hero-orbit-ring-one" />
             <span className="hero-orbit-ring hero-orbit-ring-two" />
             <span className="hero-orbit-dot hero-orbit-dot-one" />
             <span className="hero-orbit-dot hero-orbit-dot-two" />
           </div>
-          <div className="mx-auto max-w-3xl text-center">
-            <p className="pulse-chip inline-flex rounded-full border border-pearl/10 bg-white/[0.03] px-4 py-2 text-sm font-bold text-pearl/78">
+          <div className="mx-auto max-w-7xl text-center">
+            <p className="pulse-chip inline-flex rounded-full border border-pearl/10 bg-white/[0.04] px-4 py-2 text-sm font-bold text-pearl/78">
               Your content is fine. Your retention isn&apos;t.
             </p>
-            <h1 className="mt-6 text-balance text-5xl font-black leading-[0.98] md:text-7xl">
-              Turn boring clips into <span className="hero-highlight text-mint">high-retention shorts</span>
+            <h1 className="mt-4 mx-auto max-w-[28ch] text-balance text-[2.7rem] font-black leading-[0.9] tracking-tight md:max-w-[24ch] md:text-[3.7rem] lg:max-w-[26ch] lg:text-[4.15rem]">
+              <span className="block">Turn boring clips into</span>
+              <span className="hero-highlight block text-mint">high-retention shorts</span>
             </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-pearl/66 md:text-xl">
+            <p className="mx-auto mt-3 max-w-4xl text-[0.96rem] leading-6 text-pearl/66 md:text-[1rem] md:leading-7">
               Stronger hooks, cleaner subtitles, and tighter pacing for people who keep getting skipped.
             </p>
           </div>
 
-          <HomeHeroTool csrfToken={csrfToken} idempotencyKey={randomUUID()} isLoggedIn={isLoggedIn} uploadLimitMb={sourceUploadMaxMb} />
+          <div className="mx-auto mt-4 max-w-6xl">
+            <HomeHeroTool csrfToken={csrfToken} idempotencyKey={randomUUID()} isLoggedIn={isLoggedIn} uploadLimitMb={sourceUploadMaxMb} />
+          </div>
 
-          <div className="mt-8 overflow-hidden rounded-full border border-pearl/10 bg-white/[0.03]">
+          <div className="mt-4 hidden overflow-hidden rounded-full border border-pearl/10 bg-white/[0.03] lg:block">
             <div className="ticker-track py-3">
               {[...motionLabels, ...motionLabels].map((label, index) => (
                 <span className="ticker-pill" key={`${label}-${index}`}>
@@ -95,7 +98,7 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          <div className="mt-4 hidden gap-3 sm:grid-cols-3 lg:grid">
             <div className="hero-stat-card">
               <span className="hero-stat-value">Faster</span>
               <span className="hero-stat-label">first-second hook</span>
@@ -110,7 +113,7 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <div className="mt-12 grid gap-6 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
+          <div className="mt-7 grid gap-6 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
             <MagneticPanel>
               <InteractiveSurface className="rounded-lg">
             <div className="interactive-card interactive-lift rounded-lg border border-pearl/10 bg-[#111418] p-5">

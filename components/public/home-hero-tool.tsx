@@ -66,16 +66,16 @@ export function HomeHeroTool({
 
   return (
     <>
-      <form action="/api/boost-jobs" className="mx-auto mt-10 max-w-4xl" encType="multipart/form-data" method="post" onSubmit={handleSubmit}>
+      <form action="/api/boost-jobs" className="hero-tool-shell mx-auto max-w-6xl" encType="multipart/form-data" method="post" onSubmit={handleSubmit}>
         <input name="csrfToken" type="hidden" value={csrfToken} />
         <input name="idempotencyKey" type="hidden" value={idempotencyKey} />
-        <div className="overflow-hidden rounded-lg border border-pearl/10 bg-[#121416]">
-          <div className="border-b border-pearl/10 px-5 py-4">
+        <div className="overflow-hidden rounded-lg border border-pearl/10 bg-[#121416]/95 shadow-[0_28px_90px_rgba(3,8,14,0.34)]">
+          <div className="border-b border-pearl/10 px-5 py-3 md:px-6">
             <p className="text-sm font-black uppercase tracking-[0.18em] text-mint/78">Try it now</p>
-            <h2 className="mt-2 text-2xl font-black md:text-3xl">Drop in a clip or paste a link</h2>
+            <h2 className="mt-1 text-[1.65rem] font-black leading-tight md:text-[2rem]">Drop in a clip or paste a link</h2>
           </div>
 
-          <div className="grid gap-6 p-5 lg:grid-cols-[1.2fr_0.8fr] lg:items-start">
+          <div className="grid gap-4 p-4 md:p-5 lg:grid-cols-[1.18fr_0.82fr] lg:items-start">
             <div className="grid gap-4">
               <label className="grid gap-2">
                 <span className="inline-flex items-center gap-2 text-sm font-black">
@@ -83,21 +83,21 @@ export function HomeHeroTool({
                   YouTube or X URL
                 </span>
                 <input
-                  className="rounded-lg border border-pearl/10 bg-ink px-4 py-4 text-base outline-none transition focus:border-mint focus:shadow-[0_0_0_4px_rgba(61,239,176,0.14)]"
+                  className="rounded-lg border border-pearl/10 bg-[#121722] px-4 py-4 text-base outline-none transition focus:border-mint focus:shadow-[0_0_0_4px_rgba(61,239,176,0.14)]"
                   name="sourceUrl"
                   placeholder="https://youtube.com/... or https://x.com/..."
                   type="url"
                 />
               </label>
 
-              <div className="text-center text-xs font-bold uppercase tracking-[0.28em] text-pearl/32">or</div>
+              <div className="hidden text-center text-xs font-bold uppercase tracking-[0.28em] text-pearl/32 lg:block">or</div>
 
               <div>
                 <span className="inline-flex items-center gap-2 text-sm font-black">
                   <UploadCloud className="h-4 w-4 text-mint" />
                   Upload a source clip
                 </span>
-                <div className="mt-2">
+                <div className="compact-dropzone mt-2">
                   <FileUploadDropzone maxFileSizeMb={uploadLimitMb} name="sourceFile" required={false} />
                 </div>
               </div>
@@ -107,14 +107,14 @@ export function HomeHeroTool({
               <label className="grid gap-2">
                 <span className="text-sm font-black">What should the edit emphasize?</span>
                 <textarea
-                  className="min-h-32 rounded-lg border border-pearl/10 bg-ink px-4 py-4 text-base outline-none transition focus:border-mint focus:shadow-[0_0_0_4px_rgba(61,239,176,0.14)]"
+                  className="min-h-32 rounded-lg border border-pearl/10 bg-[#121722] px-4 py-4 text-base outline-none transition focus:border-mint focus:shadow-[0_0_0_4px_rgba(61,239,176,0.14)]"
                   name="description"
                   placeholder="Stronger intro, cleaner captions, faster pacing, more gameplay under the talking head..."
                   required
                 />
               </label>
 
-              <div className="rounded-lg border border-pearl/10 bg-ink/60 px-4 py-3 text-sm leading-6 text-pearl/60">
+              <div className="hero-tool-note rounded-lg border border-pearl/10 bg-[#11151d]/90 px-4 py-3 text-sm leading-6 text-pearl/60">
                 Free plan available. No card needed. Uploads are capped at {uploadLimitMb}MB.
               </div>
 

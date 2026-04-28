@@ -18,8 +18,8 @@ export async function SiteHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-pearl/10 bg-ink/86 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
+    <header className="sticky top-0 z-50 border-b border-pearl/10 bg-[#0b1016]/82 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-[86rem] items-center justify-between px-5 py-4">
         <Link className="font-black tracking-normal" href="/">
           <AaxLogo compact className="text-pearl" />
         </Link>
