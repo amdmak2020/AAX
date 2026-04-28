@@ -84,6 +84,10 @@ export default async function CreateBoostJobPage({
   const params = searchParams ? await searchParams : {};
   const errorCode = typeof params.error === "string" ? params.error : null;
   const activeMessage = errorCode ? createMessages[errorCode as keyof typeof createMessages] ?? createMessages.generic : null;
+  const defaultSourceUrl = typeof params.sourceUrl === "string" ? params.sourceUrl : "";
+  const defaultDescription = typeof params.description === "string" ? params.description : "";
+  const uploadIntent = typeof params.intent === "string" ? params.intent : null;
+  const uploadFileName = typeof params.fileName === "string" ? params.fileName : null;
 
   const plan = planCatalog[workspace.subscription.plan_key];
   const uploadLimitMb = Math.min(plan.maxFileSizeMb, sourceUploadMaxMb);
@@ -120,6 +124,19 @@ export default async function CreateBoostJobPage({
         </div>
       ) : null}
 
+      {uploadIntent === "upload" ? (
+        <div className="mt-6 overflow-hidden rounded-lg border border-mint/20 bg-mint/10">
+          <div className="px-5 py-5">
+            <p className="text-sm font-black uppercase tracking-[0.18em] text-mint/78">Almost there</p>
+            <h2 className="mt-2 text-2xl font-black">Add the clip one more time</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-pearl/74">
+              We carried over the rest of your draft. To protect your file, uploads do not cross the sign-up step, so just re-add
+              {uploadFileName ? ` ${uploadFileName}` : " the clip"} and keep going.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       <form action="/api/boost-jobs" className="mt-8" method="post" encType="multipart/form-data">
         <CsrfHiddenInput />
         <IdempotencyHiddenInput />
@@ -145,6 +162,7 @@ export default async function CreateBoostJobPage({
               <span className="text-sm font-black">YouTube or X URL</span>
               <input
                 className="rounded-lg border border-pearl/10 bg-ink px-4 py-4 text-base outline-none transition focus:border-mint focus:shadow-[0_0_0_4px_rgba(61,239,176,0.14)]"
+                defaultValue={defaultSourceUrl}
                 name="sourceUrl"
                 placeholder="https://youtube.com/... or https://x.com/..."
                 type="url"
@@ -155,6 +173,7 @@ export default async function CreateBoostJobPage({
               <span className="text-sm font-black">Description</span>
               <textarea
                 className="min-h-28 rounded-lg border border-pearl/10 bg-ink px-4 py-4 text-base outline-none transition focus:border-mint focus:shadow-[0_0_0_4px_rgba(61,239,176,0.14)]"
+                defaultValue={defaultDescription}
                 name="description"
                 placeholder="What is happening in this clip, and what should the edit emphasize?"
                 required

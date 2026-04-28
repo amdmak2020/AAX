@@ -1,16 +1,19 @@
+import { randomUUID } from "crypto";
 import { CheckCircle2, CircleX, MessageSquareMore } from "lucide-react";
 import Script from "next/script";
 import { InteractiveSurface } from "@/components/effects/interactive-surface";
 import { MagneticPanel } from "@/components/effects/magnetic-panel";
+import { HomeHeroTool } from "@/components/public/home-hero-tool";
 import { CtaBlock } from "@/components/public/cta-block";
 import { PricingCard } from "@/components/public/pricing-card";
 import { SectionWrapper } from "@/components/public/section-wrapper";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { brand } from "@/lib/app-config";
+import { brand, sourceUploadMaxMb } from "@/lib/app-config";
+import { getCsrfTokenForRender } from "@/lib/csrf";
 import { faqs, plans } from "@/lib/product";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export default function HomePage() {
+export default async function HomePage() {
   const motionLabels = [
     "Hook rewrite",
     "Subtitle cleanup",
@@ -42,6 +45,19 @@ export default function HomePage() {
     }
   };
 
+  const csrfToken = await getCsrfTokenForRender();
+  let isLoggedIn = false;
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+    isLoggedIn = Boolean(user);
+  } catch {
+    isLoggedIn = false;
+  }
+
   return (
     <main>
       <Script id="aax-softwareapp-schema" type="application/ld+json">
@@ -65,37 +81,32 @@ export default function HomePage() {
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-pearl/66 md:text-xl">
               Stronger hooks, cleaner subtitles, and tighter pacing for people who keep getting skipped.
             </p>
+          </div>
 
-            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              <Button href="/signup">Boost my video</Button>
-              <Button href="/pricing" variant="secondary">
-                See pricing
-              </Button>
+          <HomeHeroTool csrfToken={csrfToken} idempotencyKey={randomUUID()} isLoggedIn={isLoggedIn} uploadLimitMb={sourceUploadMaxMb} />
+
+          <div className="mt-8 overflow-hidden rounded-full border border-pearl/10 bg-white/[0.03]">
+            <div className="ticker-track py-3">
+              {[...motionLabels, ...motionLabels].map((label, index) => (
+                <span className="ticker-pill" key={`${label}-${index}`}>
+                  {label}
+                </span>
+              ))}
             </div>
+          </div>
 
-            <div className="mt-6 overflow-hidden rounded-full border border-pearl/10 bg-white/[0.03]">
-              <div className="ticker-track py-3">
-                {[...motionLabels, ...motionLabels].map((label, index) => (
-                  <span className="ticker-pill" key={`${label}-${index}`}>
-                    {label}
-                  </span>
-                ))}
-              </div>
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            <div className="hero-stat-card">
+              <span className="hero-stat-value">Faster</span>
+              <span className="hero-stat-label">first-second hook</span>
             </div>
-
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              <div className="hero-stat-card">
-                <span className="hero-stat-value">Faster</span>
-                <span className="hero-stat-label">first-second hook</span>
-              </div>
-              <div className="hero-stat-card">
-                <span className="hero-stat-value">Cleaner</span>
-                <span className="hero-stat-label">subtitle readability</span>
-              </div>
-              <div className="hero-stat-card">
-                <span className="hero-stat-value">Better</span>
-                <span className="hero-stat-label">watchability feel</span>
-              </div>
+            <div className="hero-stat-card">
+              <span className="hero-stat-value">Cleaner</span>
+              <span className="hero-stat-label">subtitle readability</span>
+            </div>
+            <div className="hero-stat-card">
+              <span className="hero-stat-value">Better</span>
+              <span className="hero-stat-label">watchability feel</span>
             </div>
           </div>
 
@@ -269,7 +280,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-5xl">
           <CtaBlock
             body="Upload a clip, boost the hook and subtitles, and get back a version people are more likely to watch."
-            primaryHref="/signup"
+            primaryHref="/"
             primaryLabel="Fix my clip"
             secondaryHref="/pricing"
             secondaryLabel="See pricing"

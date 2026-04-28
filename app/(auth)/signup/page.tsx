@@ -7,10 +7,11 @@ import { Card } from "@/components/ui/card";
 export default async function SignupPage({
   searchParams
 }: {
-  searchParams: Promise<{ error?: string; next?: string }>;
+  searchParams: Promise<{ error?: string; next?: string; email?: string }>;
 }) {
   const params = await searchParams;
   const next = params.next ?? "/app";
+  const email = params.email ?? "";
 
   return (
     <Card className="w-full max-w-md">
@@ -36,7 +37,7 @@ export default async function SignupPage({
         </label>
         <label className="grid gap-2">
           <span className="text-sm font-black">Email</span>
-          <input className="rounded-lg border border-pearl/10 bg-ink px-4 py-3" name="email" type="email" required />
+          <input className="rounded-lg border border-pearl/10 bg-ink px-4 py-3" defaultValue={email} name="email" type="email" required />
         </label>
         <label className="grid gap-2">
           <span className="text-sm font-black">Password</span>
