@@ -9,7 +9,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:security": "node --experimental-strip-types scripts/security-check.ts",
-    "test:deps": "node --experimental-strip-types scripts/dependency-check.ts"
+    "test:deps": "node --experimental-strip-types scripts/dependency-check.ts",
+    "test:regression": "node --experimental-strip-types scripts/security-regression.ts"
   },
   "dependencies": {
     "@supabase/ssr": "0.10.2",

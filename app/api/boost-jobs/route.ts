@@ -15,6 +15,7 @@ import { getProcessorProvider } from "@/lib/processor/provider";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { logServerError } from "@/lib/secure-log";
 import { uploadSourceVideo } from "@/lib/storage/supabase-storage";
+import { hasActiveBillingAccessForBoost } from "@/lib/subscription-access";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUnexpectedFormFields, multilineTextSchema, optionalHttpUrlSchema, requestExceedsBytes, sanitizeSingleLineText } from "@/lib/validation";
@@ -193,8 +194,10 @@ export async function POST(request: Request) {
     const subscription = await ensureAccountRecords(user);
     const plan = planCatalog[subscription.plan_key];
     const usageBypassed = bypassUsageLimits();
-    const hasValidPaidAccess =
-      subscription.plan_key === "free" || subscription.status === "active" || subscription.status === "trialing";
+    const hasValidPaidAccess = hasActiveBillingAccessForBoost({
+      planKey: subscription.plan_key,
+      status: subscription.status
+    });
 
     if (!hasValidPaidAccess) {
       return applyRateLimitHeaders(
