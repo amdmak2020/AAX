@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { parseSafeRemoteUrl } from "@/lib/network-security";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { normalizeHttpUrl } from "@/lib/validation";
 
@@ -18,16 +19,26 @@ const maxRedirectHops = 3;
 const previewFetchTimeoutMs = 15_000;
 const proxyQuerySchema = z
   .object({
-    url: z.string().trim().min(1).max(2048).transform((value, ctx) => {
-      try {
-        return normalizeHttpUrl(value);
-      } catch {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid video URL." });
-        return z.NEVER;
-      }
-    })
+    url: z
+      .string()
+      .trim()
+      .min(1)
+      .max(2048)
+      .transform((value, ctx) => {
+        try {
+          return normalizeHttpUrl(value);
+        } catch {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid video URL." });
+          return z.NEVER;
+        }
+      })
+      .optional(),
+    jobId: z.string().trim().uuid().optional()
   })
-  .strict();
+  .strict()
+  .refine((value) => Boolean(value.url || value.jobId), {
+    message: "Missing video URL."
+  });
 
 function isAllowedUrl(url: URL) {
   try {
@@ -84,6 +95,37 @@ async function userOwnsVideoUrl(userId: string, normalizedUrl: string) {
   }
 
   return Boolean(legacy.data?.id || modern.data?.id);
+}
+
+async function getOwnedVideoUrlForJob(userId: string, jobId: string) {
+  const supabase = await createSupabaseServerClient();
+  const jobResult = await supabase
+    .from("video_jobs")
+    .select("output_asset_path")
+    .eq("id", jobId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (jobResult.error) {
+    throw new Error(jobResult.error.message);
+  }
+
+  const outputAssetPath = jobResult.data?.output_asset_path;
+  if (typeof outputAssetPath !== "string" || outputAssetPath.trim().length === 0) {
+    return null;
+  }
+
+  if (/^https?:\/\//i.test(outputAssetPath)) {
+    return outputAssetPath;
+  }
+
+  const admin = createSupabaseAdminClient();
+  const signed = await admin.storage.from("output-videos").createSignedUrl(outputAssetPath, 60 * 60);
+  if (signed.error || !signed.data?.signedUrl) {
+    throw new Error(signed.error?.message ?? "Could not sign output video URL.");
+  }
+
+  return signed.data.signedUrl;
 }
 
 async function fetchWithAllowedRedirects(initialUrl: URL, range: string | null) {
@@ -151,7 +193,8 @@ export async function GET(request: Request) {
 
   const requestUrl = new URL(request.url);
   const parsedQuery = proxyQuerySchema.safeParse({
-    url: requestUrl.searchParams.get("url")
+    url: requestUrl.searchParams.get("url") ?? undefined,
+    jobId: requestUrl.searchParams.get("jobId") ?? undefined
   });
 
   if (!parsedQuery.success) {
@@ -165,14 +208,31 @@ export async function GET(request: Request) {
 
   let targetUrl: URL;
   try {
-    targetUrl = parseSafeRemoteUrl(parsedQuery.data.url, { allowHosts: allowedHosts });
-  } catch {
-    return applyRateLimitHeaders(NextResponse.json({ error: "Invalid video URL." }, { status: 400 }), {
-      limit: 120,
-      remaining: limiter.remaining,
-      resetAt: limiter.resetAt,
-      store: limiter.store
-    });
+    const resolvedUrl =
+      parsedQuery.data.jobId
+        ? await getOwnedVideoUrlForJob(user.id, parsedQuery.data.jobId)
+        : parsedQuery.data.url;
+
+    if (!resolvedUrl) {
+      return applyRateLimitHeaders(NextResponse.json({ error: "Preview video is not available yet." }, { status: 404 }), {
+        limit: 120,
+        remaining: limiter.remaining,
+        resetAt: limiter.resetAt,
+        store: limiter.store
+      });
+    }
+
+    targetUrl = parseSafeRemoteUrl(resolvedUrl, { allowHosts: allowedHosts });
+  } catch (error) {
+    return applyRateLimitHeaders(
+      NextResponse.json({ error: error instanceof Error ? error.message : "Invalid video URL." }, { status: 400 }),
+      {
+        limit: 120,
+        remaining: limiter.remaining,
+        resetAt: limiter.resetAt,
+        store: limiter.store
+      }
+    );
   }
 
   if (!isAllowedUrl(targetUrl)) {
@@ -184,14 +244,16 @@ export async function GET(request: Request) {
     });
   }
 
-  const ownsUrl = await userOwnsVideoUrl(user.id, targetUrl.toString());
-  if (!ownsUrl) {
-    return applyRateLimitHeaders(NextResponse.json({ error: "You can only preview videos that belong to your account." }, { status: 403 }), {
-      limit: 120,
-      remaining: limiter.remaining,
-      resetAt: limiter.resetAt,
-      store: limiter.store
-    });
+  if (!parsedQuery.data.jobId) {
+    const ownsUrl = await userOwnsVideoUrl(user.id, targetUrl.toString());
+    if (!ownsUrl) {
+      return applyRateLimitHeaders(NextResponse.json({ error: "You can only preview videos that belong to your account." }, { status: 403 }), {
+        limit: 120,
+        remaining: limiter.remaining,
+        resetAt: limiter.resetAt,
+        store: limiter.store
+      });
+    }
   }
 
   const range = request.headers.get("range");

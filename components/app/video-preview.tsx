@@ -18,35 +18,50 @@ function getProxyUrl(url: string) {
   return `/api/video/proxy?url=${encodeURIComponent(url)}`;
 }
 
-export function VideoPreview({ outputUrl }: { outputUrl?: string }) {
+function getJobPlaybackUrl(jobId: string) {
+  return `/api/video/proxy?jobId=${encodeURIComponent(jobId)}`;
+}
+
+export function VideoPreview({ outputUrl, jobId }: { outputUrl?: string; jobId?: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [previewFailed, setPreviewFailed] = useState(false);
   const [sourceIndex, setSourceIndex] = useState(0);
   const candidateSources = useMemo(() => {
-    if (!outputUrl) return [];
+    if (!outputUrl && !jobId) return [];
 
-    const candidates = [outputUrl];
-    const driveDirect = getGoogleDriveDirectDownloadUrl(outputUrl);
-    if (driveDirect && !candidates.includes(driveDirect)) {
-      candidates.push(driveDirect);
+    const candidates: string[] = [];
+
+    if (jobId) {
+      candidates.push(getJobPlaybackUrl(jobId));
     }
 
-    const proxyUrl = getProxyUrl(outputUrl);
-    if (!candidates.includes(proxyUrl)) {
-      candidates.push(proxyUrl);
+    if (outputUrl) {
+      if (!candidates.includes(outputUrl)) {
+        candidates.push(outputUrl);
+      }
+
+      const driveDirect = getGoogleDriveDirectDownloadUrl(outputUrl);
+      if (driveDirect && !candidates.includes(driveDirect)) {
+        candidates.push(driveDirect);
+      }
+
+      const proxyUrl = getProxyUrl(outputUrl);
+      if (!candidates.includes(proxyUrl)) {
+        candidates.push(proxyUrl);
+      }
     }
 
     return candidates;
-  }, [outputUrl]);
+  }, [jobId, outputUrl]);
   const activeSource = candidateSources[sourceIndex] ?? null;
 
   useEffect(() => {
     setSourceIndex(0);
     setIsLoading(true);
     setPreviewFailed(false);
-  }, [outputUrl]);
+  }, [jobId, outputUrl]);
 
-  if (!outputUrl) {
+  if (!outputUrl && !jobId) {
     return (
       <div className="flex h-full flex-col items-center justify-center p-6 text-center">
         <p className="text-2xl font-black">Render preview</p>

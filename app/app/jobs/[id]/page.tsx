@@ -37,7 +37,7 @@ export default async function AppJobDetailPage({ params }: { params: Promise<{ i
         <Card>
           <h2 className="text-xl font-black">Boosted preview</h2>
           <div className="mt-5">
-            <VideoPreviewCard posterUrl={job.outputPosterUrl} title={job.projectName} videoUrl={job.outputVideoUrl} />
+            <VideoPreviewCard jobId={job.id} posterUrl={job.outputPosterUrl} title={job.projectName} videoUrl={job.outputVideoUrl} />
           </div>
         </Card>
 
