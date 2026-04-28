@@ -5,6 +5,7 @@ import { getEnv, isSupabaseConfigured } from "@/lib/env";
 import { statusLabels } from "@/lib/jobs";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { refundReservedCreditForJob } from "@/lib/credits";
 import { secureCompare } from "@/lib/security";
 import { optionalHttpUrlSchema, requestExceedsBytes, singleLineTextSchema, strictUuidSchema } from "@/lib/validation";
 import { finalizePersistentWebhookEvent, reservePersistentWebhookEvent } from "@/lib/webhook-ledger";
@@ -94,6 +95,7 @@ export async function POST(request: Request) {
 
   if (isSupabaseConfigured()) {
     const supabase = createSupabaseAdminClient();
+    const jobLookup = await supabase.from("video_jobs").select("user_id").eq("id", parsed.data.jobId).maybeSingle();
     const { error } = await supabase
       .from("video_jobs")
       .update({
@@ -127,6 +129,19 @@ export async function POST(request: Request) {
         resetAt: limiter.resetAt,
         store: limiter.store
       });
+    }
+
+    if (parsed.data.status === "failed" && typeof jobLookup.data?.user_id === "string") {
+      try {
+        await refundReservedCreditForJob({
+          jobId: parsed.data.jobId,
+          userId: jobLookup.data.user_id,
+          reason: "n8n_failed",
+          request
+        });
+      } catch (refundError) {
+        logServerError("n8n failure refund failed", { error: refundError, jobId: parsed.data.jobId, userId: jobLookup.data.user_id });
+      }
     }
   }
 

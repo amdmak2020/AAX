@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/authz";
+import { ConfirmSubmitButton } from "@/components/admin/confirm-submit-button";
 import { getAdminOverview } from "@/lib/app-data";
 import { BoostStatusBadge } from "@/components/app/boost-status-badge";
 import { CsrfHiddenInput } from "@/components/security/csrf-hidden-input";
@@ -119,9 +120,12 @@ export default async function AppAdminPage({ searchParams }: AdminPageProps) {
                           placeholder="Reason for suspension"
                         />
                       ) : null}
-                      <button className="rounded-lg border border-pearl/10 bg-white/[0.04] px-3 py-2 text-left font-semibold transition hover:border-mint/40 hover:bg-white/[0.06]" type="submit">
+                      <ConfirmSubmitButton
+                        className="rounded-lg border border-pearl/10 bg-white/[0.04] px-3 py-2 text-left font-semibold transition hover:border-mint/40 hover:bg-white/[0.06]"
+                        confirmMessage={user.is_suspended ? "Resume this account?" : "Suspend this account?"}
+                      >
                         {user.is_suspended ? "Resume account" : "Suspend account"}
-                      </button>
+                      </ConfirmSubmitButton>
                     </form>
 
                     <form action="/api/admin/users/security" className="grid gap-2">
@@ -132,27 +136,36 @@ export default async function AppAdminPage({ searchParams }: AdminPageProps) {
                         type="hidden"
                         value={user.submissions_locked ? "unlock_submissions" : "lock_submissions"}
                       />
-                      <button className="rounded-lg border border-pearl/10 bg-white/[0.04] px-3 py-2 text-left font-semibold transition hover:border-mint/40 hover:bg-white/[0.06]" type="submit">
+                      <ConfirmSubmitButton
+                        className="rounded-lg border border-pearl/10 bg-white/[0.04] px-3 py-2 text-left font-semibold transition hover:border-mint/40 hover:bg-white/[0.06]"
+                        confirmMessage={user.submissions_locked ? "Unlock submissions for this account?" : "Lock new submissions for this account?"}
+                      >
                         {user.submissions_locked ? "Unlock submissions" : "Lock submissions"}
-                      </button>
+                      </ConfirmSubmitButton>
                     </form>
 
                     <form action="/api/admin/users/security" className="grid gap-2">
                       <CsrfHiddenInput />
                       <input name="userId" type="hidden" value={user.id} />
                       <input name="action" type="hidden" value={user.billing_locked ? "unlock_billing" : "lock_billing"} />
-                      <button className="rounded-lg border border-pearl/10 bg-white/[0.04] px-3 py-2 text-left font-semibold transition hover:border-mint/40 hover:bg-white/[0.06]" type="submit">
+                      <ConfirmSubmitButton
+                        className="rounded-lg border border-pearl/10 bg-white/[0.04] px-3 py-2 text-left font-semibold transition hover:border-mint/40 hover:bg-white/[0.06]"
+                        confirmMessage={user.billing_locked ? "Unlock billing for this account?" : "Lock billing for this account?"}
+                      >
                         {user.billing_locked ? "Unlock billing" : "Lock billing"}
-                      </button>
+                      </ConfirmSubmitButton>
                     </form>
 
                     <form action="/api/admin/users/security" className="grid gap-2">
                       <CsrfHiddenInput />
                       <input name="userId" type="hidden" value={user.id} />
                       <input name="action" type="hidden" value={(user.abuse_flags ?? 0) > 0 ? "clear_abuse" : "flag_abuse"} />
-                      <button className="rounded-lg border border-pearl/10 bg-white/[0.04] px-3 py-2 text-left font-semibold transition hover:border-mint/40 hover:bg-white/[0.06]" type="submit">
+                      <ConfirmSubmitButton
+                        className="rounded-lg border border-pearl/10 bg-white/[0.04] px-3 py-2 text-left font-semibold transition hover:border-mint/40 hover:bg-white/[0.06]"
+                        confirmMessage={(user.abuse_flags ?? 0) > 0 ? "Clear abuse flags for this account?" : "Flag this account for abuse review?"}
+                      >
                         {(user.abuse_flags ?? 0) > 0 ? "Clear abuse flags" : "Flag for abuse review"}
-                      </button>
+                      </ConfirmSubmitButton>
                     </form>
                   </div>
                 </div>
@@ -172,6 +185,42 @@ export default async function AppAdminPage({ searchParams }: AdminPageProps) {
                 </div>
                 <p className="mt-1 text-pearl/56">{job.sourceFileName ?? job.sourceVideoUrl}</p>
                 <p className="mt-2 text-xs uppercase text-pearl/40">{job.processorProvider}</p>
+                <form action="/api/admin/jobs/manage" className="mt-4 grid gap-2">
+                  <CsrfHiddenInput />
+                  <input name="jobId" type="hidden" value={job.id} />
+                  <input
+                    className="rounded-lg border border-pearl/10 bg-black/30 px-3 py-2 text-sm text-pearl outline-none transition focus:border-mint/40"
+                    maxLength={160}
+                    name="reason"
+                    placeholder="Reason for cancel/refund"
+                  />
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <input name="action" type="hidden" value="cancel_job" />
+                    <ConfirmSubmitButton
+                      className="rounded-lg border border-pearl/10 bg-white/[0.04] px-3 py-2 text-left font-semibold transition hover:border-coral/50 hover:bg-coral/10"
+                      confirmMessage="Cancel this job and refund any reserved credit?"
+                    >
+                      Cancel job
+                    </ConfirmSubmitButton>
+                  </div>
+                </form>
+                <form action="/api/admin/jobs/manage" className="mt-2 grid gap-2">
+                  <CsrfHiddenInput />
+                  <input name="jobId" type="hidden" value={job.id} />
+                  <input name="action" type="hidden" value="refund_credit" />
+                  <input
+                    className="rounded-lg border border-pearl/10 bg-black/30 px-3 py-2 text-sm text-pearl outline-none transition focus:border-mint/40"
+                    maxLength={160}
+                    name="reason"
+                    placeholder="Reason for manual refund"
+                  />
+                  <ConfirmSubmitButton
+                    className="rounded-lg border border-pearl/10 bg-white/[0.04] px-3 py-2 text-left font-semibold transition hover:border-mint/40 hover:bg-white/[0.06]"
+                    confirmMessage="Refund this job credit if it has not already been refunded?"
+                  >
+                    Refund reserved credit
+                  </ConfirmSubmitButton>
+                </form>
               </div>
             ))}
           </div>
@@ -212,6 +261,76 @@ export default async function AppAdminPage({ searchParams }: AdminPageProps) {
                   <p className="mt-1 text-pearl/56">
                     Period end: {subscription.current_period_end ? new Date(subscription.current_period_end).toLocaleString() : "not set"}
                   </p>
+                  <div className="mt-4 grid gap-2 md:grid-cols-2">
+                    <form action="/api/admin/subscriptions/manage" className="grid gap-2">
+                      <CsrfHiddenInput />
+                      <input name="userId" type="hidden" value={subscription.user_id ?? ""} />
+                      <input name="action" type="hidden" value="downgrade_to_free" />
+                      <input
+                        className="rounded-lg border border-pearl/10 bg-black/30 px-3 py-2 text-sm text-pearl outline-none transition focus:border-mint/40"
+                        maxLength={160}
+                        name="reason"
+                        placeholder="Reason for downgrade"
+                      />
+                      <ConfirmSubmitButton
+                        className="rounded-lg border border-pearl/10 bg-white/[0.04] px-3 py-2 text-left font-semibold transition hover:border-coral/50 hover:bg-coral/10"
+                        confirmMessage="Downgrade this subscription to Free?"
+                      >
+                        Downgrade to Free
+                      </ConfirmSubmitButton>
+                    </form>
+                    <form action="/api/admin/subscriptions/manage" className="grid gap-2">
+                      <CsrfHiddenInput />
+                      <input name="userId" type="hidden" value={subscription.user_id ?? ""} />
+                      <input name="action" type="hidden" value="set_refunded" />
+                      <input
+                        className="rounded-lg border border-pearl/10 bg-black/30 px-3 py-2 text-sm text-pearl outline-none transition focus:border-mint/40"
+                        maxLength={160}
+                        name="reason"
+                        placeholder="Reason for refund state"
+                      />
+                      <ConfirmSubmitButton
+                        className="rounded-lg border border-pearl/10 bg-white/[0.04] px-3 py-2 text-left font-semibold transition hover:border-coral/50 hover:bg-coral/10"
+                        confirmMessage="Mark this subscription as refunded and return it to Free?"
+                      >
+                        Mark refunded
+                      </ConfirmSubmitButton>
+                    </form>
+                    <form action="/api/admin/subscriptions/manage" className="grid gap-2">
+                      <CsrfHiddenInput />
+                      <input name="userId" type="hidden" value={subscription.user_id ?? ""} />
+                      <input name="action" type="hidden" value="set_cancelled" />
+                      <input
+                        className="rounded-lg border border-pearl/10 bg-black/30 px-3 py-2 text-sm text-pearl outline-none transition focus:border-mint/40"
+                        maxLength={160}
+                        name="reason"
+                        placeholder="Reason for cancellation"
+                      />
+                      <ConfirmSubmitButton
+                        className="rounded-lg border border-pearl/10 bg-white/[0.04] px-3 py-2 text-left font-semibold transition hover:border-amber-400/50 hover:bg-amber-400/10"
+                        confirmMessage="Mark this subscription as cancelled?"
+                      >
+                        Mark cancelled
+                      </ConfirmSubmitButton>
+                    </form>
+                    <form action="/api/admin/subscriptions/manage" className="grid gap-2">
+                      <CsrfHiddenInput />
+                      <input name="userId" type="hidden" value={subscription.user_id ?? ""} />
+                      <input name="action" type="hidden" value="set_past_due" />
+                      <input
+                        className="rounded-lg border border-pearl/10 bg-black/30 px-3 py-2 text-sm text-pearl outline-none transition focus:border-mint/40"
+                        maxLength={160}
+                        name="reason"
+                        placeholder="Reason for past_due"
+                      />
+                      <ConfirmSubmitButton
+                        className="rounded-lg border border-pearl/10 bg-white/[0.04] px-3 py-2 text-left font-semibold transition hover:border-amber-400/50 hover:bg-amber-400/10"
+                        confirmMessage="Mark this subscription as past due?"
+                      >
+                        Mark past due
+                      </ConfirmSubmitButton>
+                    </form>
+                  </div>
                 </div>
               )
             )}

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { hasRole, isEmailVerified, isRecentlyAuthenticated } from "@/lib/access-control";
 import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
+import { refundReservedCreditForJob } from "@/lib/credits";
 import { getCurrentProfileOptional } from "@/lib/authz";
 import { verifyCsrfRequest } from "@/lib/csrf";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
@@ -70,6 +71,7 @@ export async function POST(request: Request) {
   }
 
   const admin = createSupabaseAdminClient();
+  const jobLookup = await admin.from("video_jobs").select("user_id").eq("id", parsed.data.jobId).maybeSingle();
   const { error } = await admin
     .from("video_jobs")
     .update({
@@ -97,6 +99,26 @@ export async function POST(request: Request) {
     action: "admin.job_status_updated",
     metadata: buildRequestAuditMetadata(request, { status: parsed.data.status })
   });
+
+  if (parsed.data.status === "failed" && typeof jobLookup.data?.user_id === "string") {
+    try {
+      await refundReservedCreditForJob({
+        jobId: parsed.data.jobId,
+        userId: jobLookup.data.user_id,
+        reason: "admin_cancelled",
+        request,
+        actorUserId: profile.id,
+        note: parsed.data.errorMessage ?? "Marked failed by admin"
+      });
+    } catch {
+      return applyRateLimitHeaders(NextResponse.json({ error: "Admin refund processing failed." }, { status: 500 }), {
+        limit: 60,
+        remaining: limiter.remaining,
+        resetAt: limiter.resetAt,
+        store: limiter.store
+      });
+    }
+  }
 
   return applyRateLimitHeaders(NextResponse.json({ ok: true }), {
     limit: 60,
