@@ -358,16 +358,10 @@ export async function POST(request: Request) {
       logServerError("Usage ledger insert failed", { reason: usageLedgerInsert.error.message, userId: user.id, jobId });
       await sendOperationalAlert({
         code: "usage-ledger-insert-failed",
-        severity: "critical",
+        severity: "warning",
         summary: "Usage ledger write failed after boost job creation.",
         dedupeKey: user.id,
         details: { userId: user.id, jobId }
-      });
-      return applyRateLimitHeaders(respondWithCreateError(request, "usage_update_failed", "We couldn't finalize the credit reservation.", 500), {
-        limit: 12,
-        remaining: limiter.remaining,
-        resetAt: limiter.resetAt,
-        store: limiter.store
       });
     }
 
