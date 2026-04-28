@@ -6,7 +6,6 @@ import { BoostStatusBadge } from "@/components/app/boost-status-badge";
 import { JobStatusTimeline } from "@/components/app/job-status-timeline";
 import { VideoPreviewCard } from "@/components/app/video-preview-card";
 import { getBoostJobForViewer } from "@/lib/app-data";
-import { boostPresets, targetPlatforms } from "@/lib/app-config";
 import { formatDate } from "@/lib/utils";
 
 export default async function AppJobDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -34,51 +33,25 @@ export default async function AppJobDetailPage({ params }: { params: Promise<{ i
         </div>
       </div>
 
-      <section className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
-        <div className="grid gap-5">
-          <Card>
-            <h2 className="text-xl font-black">Job details</h2>
-            <dl className="mt-5 grid gap-4 text-sm">
-              <div>
-                <dt className="text-pearl/44">Preset</dt>
-                <dd className="font-bold">{boostPresets.find((preset) => preset.key === job.preset)?.name ?? job.preset}</dd>
-              </div>
-              <div>
-                <dt className="text-pearl/44">Target platform</dt>
-                <dd className="font-bold">{targetPlatforms.find((platform) => platform.key === job.targetPlatform)?.name ?? job.targetPlatform}</dd>
-              </div>
-              <div>
-                <dt className="text-pearl/44">Source clip</dt>
-                <dd className="break-all font-bold">{job.sourceFileName ?? job.sourceVideoUrl}</dd>
-              </div>
-              {job.description ? (
-                <div>
-                  <dt className="text-pearl/44">Clip description</dt>
-                  <dd className="leading-6 text-pearl/70">{job.description}</dd>
-                </div>
-              ) : null}
-            </dl>
-          </Card>
-
-          <Card>
-            <h2 className="text-xl font-black">Status timeline</h2>
-            <div className="mt-5">
-              <JobStatusTimeline status={job.status} />
-            </div>
-            {job.errorMessage ? (
-              <div className="mt-5 rounded-lg border border-coral/30 bg-coral/10 p-4 text-sm leading-6 text-pearl/70">
-                <p className="font-black text-coral">Something went wrong</p>
-                <p className="mt-2">{job.errorMessage}</p>
-              </div>
-            ) : null}
-          </Card>
-        </div>
-
+      <section className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
         <Card>
           <h2 className="text-xl font-black">Boosted preview</h2>
           <div className="mt-5">
             <VideoPreviewCard posterUrl={job.outputPosterUrl} title={job.projectName} videoUrl={job.outputVideoUrl} />
           </div>
+        </Card>
+
+        <Card>
+          <h2 className="text-xl font-black">Status timeline</h2>
+          <div className="mt-5">
+            <JobStatusTimeline status={job.status} />
+          </div>
+          {job.errorMessage ? (
+            <div className="mt-5 rounded-lg border border-coral/30 bg-coral/10 p-4 text-sm leading-6 text-pearl/70">
+              <p className="font-black text-coral">Something went wrong</p>
+              <p className="mt-2">{job.errorMessage}</p>
+            </div>
+          ) : null}
         </Card>
       </section>
     </div>
