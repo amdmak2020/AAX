@@ -7,6 +7,7 @@ import { normalizeHttpUrl } from "@/lib/validation";
 
 const allowedHosts = new Set([
   "drive.google.com",
+  "drive.usercontent.google.com",
   "docs.google.com",
   "lh3.googleusercontent.com",
   "storage.googleapis.com",
@@ -36,6 +37,33 @@ function isAllowedUrl(url: URL) {
   }
 }
 
+function getGoogleDriveFileId(url: URL) {
+  const queryId = url.searchParams.get("id");
+  if (queryId) return queryId;
+
+  const fileMatch = url.pathname.match(/\/file\/d\/([^/]+)/);
+  if (fileMatch?.[1]) return fileMatch[1];
+
+  const ucMatch = url.pathname.match(/\/uc$/);
+  if (ucMatch) {
+    return url.searchParams.get("id");
+  }
+
+  return null;
+}
+
+function toStreamableVideoUrl(url: URL) {
+  const host = url.hostname.toLowerCase();
+  if (host === "drive.google.com" || host === "docs.google.com") {
+    const fileId = getGoogleDriveFileId(url);
+    if (fileId) {
+      return new URL(`https://drive.usercontent.google.com/download?id=${encodeURIComponent(fileId)}&export=download&confirm=t`);
+    }
+  }
+
+  return new URL(url.toString());
+}
+
 async function userOwnsVideoUrl(userId: string, normalizedUrl: string) {
   const supabase = await createSupabaseServerClient();
 
@@ -59,7 +87,7 @@ async function userOwnsVideoUrl(userId: string, normalizedUrl: string) {
 }
 
 async function fetchWithAllowedRedirects(initialUrl: URL, range: string | null) {
-  let currentUrl = new URL(initialUrl.toString());
+  let currentUrl = toStreamableVideoUrl(initialUrl);
 
   for (let hop = 0; hop <= maxRedirectHops; hop += 1) {
     const upstream = await fetch(currentUrl, {
