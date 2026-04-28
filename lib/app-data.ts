@@ -5,6 +5,7 @@ import type { BoostJob } from "@/lib/boost-jobs";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
+import { materializeRemoteOutputVideo, resolveStoredOutputVideoUrl } from "@/lib/storage/supabase-storage";
 import { sanitizeMultilineText, sanitizeSingleLineText } from "@/lib/validation";
 
 type SubscriptionRow = {
@@ -63,7 +64,8 @@ function asTargetPlatform(value: string | null | undefined): BoostJob["targetPla
   return value === "tiktok" || value === "youtube-shorts" || value === "instagram-reels" ? value : "tiktok";
 }
 
-function mapBoostJob(row: BoostJobRow): BoostJob {
+async function mapBoostJob(row: BoostJobRow): Promise<BoostJob> {
+  const resolvedOutputUrl = await resolveStoredOutputVideoUrl(row.output_asset_path);
   return {
     id: row.id,
     userId: row.user_id,
@@ -76,7 +78,7 @@ function mapBoostJob(row: BoostJobRow): BoostJob {
     externalJobId: row.n8n_execution_id ?? null,
     sourceVideoUrl: row.twitter_url ?? "",
     sourceFileName: null,
-    outputVideoUrl: row.output_asset_path,
+    outputVideoUrl: resolvedOutputUrl,
     outputPosterUrl: null,
     errorMessage: row.error_message ? sanitizeMultilineText(row.error_message).slice(0, 600) : null,
     createdAt: row.created_at,
@@ -169,14 +171,54 @@ export async function getViewerWorkspace(): Promise<ViewerWorkspace | null> {
             stripe_subscription_id: ensuredSubscription.stripe_subscription_id,
             current_period_end: ensuredSubscription.current_period_end
           } satisfies SubscriptionRow),
-    jobs: ((jobsResult.data ?? []) as BoostJobRow[]).map(mapBoostJob)
+    jobs: await Promise.all(((jobsResult.data ?? []) as BoostJobRow[]).map(mapBoostJob))
   };
 }
 
 export async function getBoostJobForViewer(id: string) {
   const workspace = await getViewerWorkspace();
   if (!workspace) return null;
-  return workspace.jobs.find((job) => job.id === id) ?? null;
+  const job = workspace.jobs.find((entry) => entry.id === id) ?? null;
+  if (!job || !job.outputVideoUrl || !/^https?:\/\//i.test(job.outputVideoUrl) || job.status !== "completed") {
+    return job;
+  }
+
+  const admin = createSupabaseAdminClient();
+  const rawJobResult = await admin
+    .from("video_jobs")
+    .select("id,user_id,output_asset_path")
+    .eq("id", id)
+    .maybeSingle();
+
+  const rawStoredOutput = typeof rawJobResult.data?.output_asset_path === "string" ? rawJobResult.data.output_asset_path : null;
+  const rawUserId = typeof rawJobResult.data?.user_id === "string" ? rawJobResult.data.user_id : null;
+
+  if (!rawStoredOutput || !rawUserId || !/^https?:\/\//i.test(rawStoredOutput)) {
+    return job;
+  }
+
+  try {
+    const hosted = await materializeRemoteOutputVideo({
+      userId: rawUserId,
+      jobId: id,
+      remoteUrl: rawStoredOutput
+    });
+
+    await admin
+      .from("video_jobs")
+      .update({
+        output_asset_path: hosted.path,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", id);
+
+    return {
+      ...job,
+      outputVideoUrl: hosted.signedUrl
+    };
+  } catch {
+    return job;
+  }
 }
 
 export async function getAdminOverview() {
@@ -203,7 +245,7 @@ export async function getAdminOverview() {
 
   return {
     users: users.data ?? [],
-    jobs: ((jobs.data ?? []) as BoostJobRow[]).map(mapBoostJob),
+    jobs: await Promise.all(((jobs.data ?? []) as BoostJobRow[]).map(mapBoostJob)),
     subscriptions: subscriptions.data ?? []
   };
 }
