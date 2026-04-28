@@ -24,12 +24,13 @@ async function reserveInUpstash(key: string, ttlSeconds: number) {
     return null;
   }
 
-  const endpoint = `${url}/set/${encodeURIComponent(key)}/1?NX=true&EX=${ttlSeconds}`;
-  const response = await fetch(endpoint, {
+  const response = await fetch(`${url}/multi-exec`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json"
     },
+    body: JSON.stringify([["SET", key, "1", "NX", "EX", String(ttlSeconds)]]),
     cache: "no-store"
   });
 
@@ -37,8 +38,14 @@ async function reserveInUpstash(key: string, ttlSeconds: number) {
     throw new Error(`Upstash idempotency request failed with ${response.status}.`);
   }
 
-  const json = (await response.json().catch(() => null)) as { result?: string | null } | null;
-  return json?.result === "OK";
+  const payload = (await response.json().catch(() => null)) as Array<{ result?: string | null; error?: string }> | null;
+  const firstResult = Array.isArray(payload) ? payload[0] : null;
+
+  if (!firstResult || firstResult.error) {
+    throw new Error(firstResult?.error ?? "Upstash idempotency response was invalid.");
+  }
+
+  return firstResult.result === "OK";
 }
 
 export async function reserveIdempotencyKey(options: {
