@@ -24,40 +24,58 @@ export function getN8nProcessorSecret() {
   return process.env.N8N_PROCESSOR_SECRET ?? process.env.N8N_WEBHOOK_SECRET ?? null;
 }
 
-export function hasLemonSqueezyApiKey() {
-  return Boolean(process.env.LEMONSQUEEZY_API_KEY);
+export function hasGumroadWebhookSecret() {
+  return Boolean(process.env.GUMROAD_WEBHOOK_SECRET);
 }
 
-export function getLemonSqueezyStoreId() {
-  return process.env.LEMONSQUEEZY_STORE_ID ?? null;
+export function getGumroadSellerId() {
+  return process.env.GUMROAD_SELLER_ID?.trim() ?? null;
 }
 
-export function getLemonSqueezyStoreUrl() {
-  return process.env.LEMONSQUEEZY_STORE_URL ?? null;
+export function hasGumroadWebhookAuth() {
+  return Boolean(getGumroadWebhookSecret() || getGumroadSellerId());
 }
 
-export function hasLemonSqueezyCheckoutConfig() {
+export function getGumroadPortalUrl() {
+  return process.env.GUMROAD_PORTAL_URL?.trim() || "https://app.gumroad.com/library";
+}
+
+export function hasGumroadCheckoutConfig() {
   return Boolean(
-    process.env.LEMONSQUEEZY_API_KEY &&
-      process.env.LEMONSQUEEZY_STORE_ID &&
-      process.env.LEMONSQUEEZY_CREATOR_VARIANT_ID &&
-      process.env.LEMONSQUEEZY_PRO_VARIANT_ID &&
-      process.env.LEMONSQUEEZY_BUSINESS_VARIANT_ID
+    process.env.GUMROAD_PRODUCT_URL ||
+      (process.env.GUMROAD_CREATOR_PRODUCT_URL &&
+        process.env.GUMROAD_PRO_PRODUCT_URL &&
+        process.env.GUMROAD_BUSINESS_PRODUCT_URL)
   );
 }
 
-export function getLemonSqueezyVariantId(planKey: Exclude<PlanKey, "free">) {
-  const variantIds = {
-    creator: process.env.LEMONSQUEEZY_CREATOR_VARIANT_ID,
-    pro: process.env.LEMONSQUEEZY_PRO_VARIANT_ID,
-    business: process.env.LEMONSQUEEZY_BUSINESS_VARIANT_ID
+export function getGumroadProductUrl(planKey: Exclude<PlanKey, "free">) {
+  const sharedUrl = process.env.GUMROAD_PRODUCT_URL?.trim();
+  if (sharedUrl) {
+    return sharedUrl;
+  }
+
+  const urls = {
+    creator: process.env.GUMROAD_CREATOR_PRODUCT_URL,
+    pro: process.env.GUMROAD_PRO_PRODUCT_URL,
+    business: process.env.GUMROAD_BUSINESS_PRODUCT_URL
   } as const;
 
-  return variantIds[planKey] ?? null;
+  return urls[planKey]?.trim() ?? null;
 }
 
-export function getLemonSqueezyWebhookSecret() {
-  return process.env.LEMONSQUEEZY_WEBHOOK_SECRET ?? null;
+export function getGumroadProductId(planKey: Exclude<PlanKey, "free">) {
+  const ids = {
+    creator: process.env.GUMROAD_CREATOR_PRODUCT_ID,
+    pro: process.env.GUMROAD_PRO_PRODUCT_ID,
+    business: process.env.GUMROAD_BUSINESS_PRODUCT_ID
+  } as const;
+
+  return ids[planKey]?.trim() ?? null;
+}
+
+export function getGumroadWebhookSecret() {
+  return process.env.GUMROAD_WEBHOOK_SECRET?.trim() ?? null;
 }
 
 export function hasUpstashRateLimitConfig() {

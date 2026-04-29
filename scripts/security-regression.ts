@@ -98,12 +98,12 @@ async function main() {
   const payload = JSON.stringify({ ok: true });
   const digest = crypto.createHmac("sha256", "secret").update(payload).digest("hex");
   assert.notEqual(digest, "bad-signature");
-  assertSourceContains("app/api/lemonsqueezy/webhook/route.ts", /request\.text\(\)/, "webhook should verify the raw body");
-  assertSourceContains("app/api/lemonsqueezy/webhook/route.ts", /verifyLemonSqueezySignature/, "webhook route should verify signatures before processing");
+  assertSourceContains("app/api/gumroad/webhook/route.ts", /request\.text\(\)/, "webhook should verify the raw body");
+  assertSourceContains("app/api/gumroad/webhook/route.ts", /verifyGumroadSignature/, "webhook route should verify signatures before processing");
   results.push("invalid webhook signatures rejected");
 
   assertSourceContains("lib/credits.ts", /scope:\s*"job-failed-refund"/, "credit refunds should be idempotent");
-  assertSourceContains("app/api/lemonsqueezy/webhook/route.ts", /reservePersistentWebhookEvent/, "Lemon Squeezy webhook should reserve event IDs before processing");
+  assertSourceContains("app/api/gumroad/webhook/route.ts", /reservePersistentWebhookEvent/, "Gumroad webhook should reserve event IDs before processing");
   results.push("duplicate webhook events do not double-credit");
 
   assert.equal(subscriptionAccess.hasActiveBillingAccessForBoost({ planKey: "creator", status: "active" }), true);
@@ -126,8 +126,8 @@ async function main() {
   assertSourceContains("app/api/auth/signup/route.ts", /enforceRateLimit/, "signup route should be rate limited");
   assertSourceContains("app/api/auth/reset/route.ts", /enforceRateLimit/, "password reset route should be rate limited");
   assertSourceContains("app/api/boost-jobs/route.ts", /enforceRateLimit/, "boost jobs should be rate limited");
-  assertSourceContains("app/api/lemonsqueezy/checkout/route.ts", /enforceRateLimit/, "checkout creation should be rate limited");
-  assertSourceContains("app/api/lemonsqueezy/webhook/route.ts", /enforceRateLimit/, "webhook route should be rate limited");
+  assertSourceContains("app/api/gumroad/checkout/route.ts", /enforceRateLimit/, "checkout creation should be rate limited");
+  assertSourceContains("app/api/gumroad/webhook/route.ts", /enforceRateLimit/, "webhook route should be rate limited");
   results.push("rate limits present on sensitive routes");
 
   assertSourceContains("app/api/admin/users/security/route.ts", /hasRole\(profile\.role,\s*"admin"\)/, "admin user-security route should require admin role");

@@ -10,7 +10,7 @@ Production-minded MVP scaffold for a self-serve creator SaaS that improves short
 - React 19 + TypeScript
 - Tailwind CSS
 - Supabase Auth, Postgres, and Storage
-- Lemon Squeezy billing scaffold
+- Gumroad billing scaffold
 - Processor provider abstraction with `mock` and `n8n` providers
 
 ## What is in the app
@@ -21,7 +21,7 @@ Production-minded MVP scaffold for a self-serve creator SaaS that improves short
 - Admin area: `/app/admin`
 - File upload flow for source clips
 - Boost job creation and status tracking
-- Lemon Squeezy checkout, billing portal, and webhook scaffold
+- Gumroad checkout links, billing management handoff, and webhook scaffold
 - Supabase schema with plans, subscriptions, usage ledger, boost jobs, and RLS
 
 ## Local setup
@@ -62,15 +62,18 @@ npm run dev -- --hostname localhost --port 3001
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
-### Lemon Squeezy
+### Gumroad
 
-- `LEMONSQUEEZY_API_KEY`
-- `LEMONSQUEEZY_WEBHOOK_SECRET`
-- `LEMONSQUEEZY_STORE_ID`
-- `LEMONSQUEEZY_STORE_URL`
-- `LEMONSQUEEZY_CREATOR_VARIANT_ID`
-- `LEMONSQUEEZY_PRO_VARIANT_ID`
-- `LEMONSQUEEZY_BUSINESS_VARIANT_ID`
+- `GUMROAD_WEBHOOK_SECRET` (optional if Gumroad gives you a real webhook signature secret)
+- `GUMROAD_SELLER_ID` (use the seller ID Gumroad shows under the Ping endpoint when no secret is available)
+- `GUMROAD_PORTAL_URL`
+- `GUMROAD_PRODUCT_URL` (optional shared membership URL when one Gumroad product contains all tiers)
+- `GUMROAD_CREATOR_PRODUCT_URL`
+- `GUMROAD_PRO_PRODUCT_URL`
+- `GUMROAD_BUSINESS_PRODUCT_URL`
+- `GUMROAD_CREATOR_PRODUCT_ID`
+- `GUMROAD_PRO_PRODUCT_ID`
+- `GUMROAD_BUSINESS_PRODUCT_ID`
 
 ### Processor
 
@@ -179,29 +182,29 @@ The provider is scaffolded so another engineer can connect the existing external
 
 ## Billing setup
 
-Current direction: Lemon Squeezy.
+Current direction: Gumroad.
 
 You need these pieces to turn on paid checkout:
 
-- Lemon Squeezy API key
-- Lemon Squeezy webhook signing secret
-- Store ID
-- Store URL (for the customer portal)
-- Variant IDs for Creator / Pro / Business
+- Gumroad webhook credential (`GUMROAD_WEBHOOK_SECRET` or `GUMROAD_SELLER_ID`)
+- Either one shared Gumroad membership URL or Creator / Pro / Business product URLs
+- Optional Creator / Pro / Business product IDs for stricter product-based mapping
+- Optional customer self-serve URL (defaults to `https://app.gumroad.com/library`)
 
-Routes now wired for Lemon Squeezy:
+Routes now wired for Gumroad:
 
-- [checkout route](C:/Users/asus/Documents/Codex/2026-04-20-i-want-to-build-a-saas/app/api/lemonsqueezy/checkout/route.ts)
-- [portal route](C:/Users/asus/Documents/Codex/2026-04-20-i-want-to-build-a-saas/app/api/lemonsqueezy/portal/route.ts)
-- [webhook route](C:/Users/asus/Documents/Codex/2026-04-20-i-want-to-build-a-saas/app/api/lemonsqueezy/webhook/route.ts)
+- [checkout route](C:/Users/asus/Documents/Codex/2026-04-20-i-want-to-build-a-saas/app/api/gumroad/checkout/route.ts)
+- [portal route](C:/Users/asus/Documents/Codex/2026-04-20-i-want-to-build-a-saas/app/api/gumroad/portal/route.ts)
+- [webhook route](C:/Users/asus/Documents/Codex/2026-04-20-i-want-to-build-a-saas/app/api/gumroad/webhook/route.ts)
 
-The webhook updates the `subscriptions` row from Lemon Squeezy subscription events.
+The webhook updates the `subscriptions` row from verified Gumroad sale / membership events.
 Webhook deliveries are also written to `webhook_events` for durable auditability and replay-safe idempotency.
+If one Gumroad membership product contains tiers named `Creator`, `Pro`, and `Business`, the webhook will map the plan by tier name.
 
-For local webhook testing, point Lemon Squeezy at:
+For local webhook testing, point Gumroad at:
 
 ```txt
-http://localhost:3001/api/lemonsqueezy/webhook
+http://localhost:3001/api/gumroad/webhook
 ```
 
 ## Production rate limiting
@@ -276,7 +279,7 @@ Start DMARC in monitoring mode first, then tighten enforcement once you trust yo
 ## Security and database operations
 
 - App code uses the Supabase SDK and parameterized filters only. There is no string-built SQL in request handlers.
-- Keep real secrets out of Git. The repository should only contain `.env.example` with fake placeholder values. Put live secrets in Vercel, Supabase, Upstash, Lemon Squeezy, or another dedicated secret manager.
+- Keep real secrets out of Git. The repository should only contain `.env.example` with fake placeholder values. Put live secrets in Vercel, Supabase, Upstash, Gumroad, or another dedicated secret manager.
 - Only expose `NEXT_PUBLIC_*` values that are truly safe for the browser. Service-role keys, webhook secrets, auth tokens, and provider API keys must stay server-only.
 - Restrict third-party keys wherever the provider supports it:
   - origin / domain restrictions for browser-safe keys
@@ -308,9 +311,9 @@ where email = 'you@example.com';
 ## Credits model
 
 - Free: 2 boosts
-- Creator: 50 boosts / month
-- Pro: 100 boosts / month
-- Business: 1000 boosts / month
+- Creator: 150 boosts / month
+- Pro: 350 boosts / month
+- Business: 2500 boosts / month
 
 Each submitted boost debits 1 credit and writes to `usage_ledger`.
 
@@ -318,9 +321,9 @@ Each submitted boost debits 1 credit and writes to `usage_ledger`.
 
 - Vercel works well for the Next.js app
 - Supabase handles auth, Postgres, and source uploads
-- Keep `SUPABASE_SERVICE_ROLE_KEY`, `LEMONSQUEEZY_API_KEY`, and `LEMONSQUEEZY_WEBHOOK_SECRET` server-only
+- Keep `SUPABASE_SERVICE_ROLE_KEY`, `GUMROAD_WEBHOOK_SECRET`, and `GUMROAD_SELLER_ID` server-only
 - Add the production app URL to Supabase redirect settings
-- Add the production Lemon Squeezy webhook endpoint before going live
+- Add the production Gumroad webhook endpoint before going live
 
 ## Quality notes
 

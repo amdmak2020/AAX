@@ -19,12 +19,12 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https://*.supabase.co https://api.lemonsqueezy.com https://*.upstash.io https://*.upstash.com https://n8n.autoagentx.com",
+  "connect-src 'self' https://*.supabase.co https://api.gumroad.com https://gumroad.com https://app.gumroad.com https://*.upstash.io https://*.upstash.com https://n8n.autoagentx.com",
   "media-src 'self' blob: https:",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
-  "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://drive.google.com https://docs.google.com https://checkout.lemonsqueezy.com https://*.lemonsqueezy.com",
-  "form-action 'self' https://checkout.lemonsqueezy.com https://*.lemonsqueezy.com",
+  "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://drive.google.com https://docs.google.com https://gumroad.com https://app.gumroad.com https://*.gumroad.com",
+  "form-action 'self' https://gumroad.com https://app.gumroad.com https://*.gumroad.com",
   "upgrade-insecure-requests"
 ].join("; ");
 
@@ -104,5 +104,7 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/create/:path*", "/jobs/:path*", "/billing/:path*", "/settings/:path*", "/admin/:path*", "/app/:path*"]
+  matcher: [
+    "/((?!api|_next/static|_next/image|favicon.ico|icon.svg|apple-icon.svg|opengraph-image|twitter-image|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|css|js|map|txt|xml)$).*)"
+  ]
 };

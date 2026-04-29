@@ -3,12 +3,9 @@ import { isBillingLocked, isEmailVerified, isAccountSuspended } from "@/lib/acce
 import { normalizeProfileSecurityRow } from "@/lib/account-bootstrap";
 import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
 import { verifyCsrfRequest } from "@/lib/csrf";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getAppUrl, getLemonSqueezyStoreUrl, hasLemonSqueezyApiKey } from "@/lib/env";
-import { getLemonSqueezySubscription } from "@/lib/lemonsqueezy";
+import { getAppUrl, getGumroadPortalUrl } from "@/lib/env";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
-import { logServerError } from "@/lib/secure-log";
 import { getUnexpectedFormFields } from "@/lib/validation";
 
 export async function POST(request: Request) {
@@ -64,45 +61,13 @@ export async function POST(request: Request) {
     return NextResponse.redirect(`${getAppUrl()}/app/billing?portal=verify-email`, { status: 303 });
   }
 
-  if (!hasLemonSqueezyApiKey()) {
-    return NextResponse.redirect(`${getAppUrl()}/app/billing?portal=missing-configuration`, { status: 303 });
-  }
+  await logAuditEvent({
+    actorUserId: user.id,
+    targetType: "subscription",
+    targetId: user.id,
+    action: "billing.portal_opened",
+    metadata: buildRequestAuditMetadata(request, { provider: "gumroad" })
+  });
 
-  const admin = createSupabaseAdminClient();
-  const subscriptionResult = await admin.from("subscriptions").select("stripe_subscription_id").eq("user_id", user.id).maybeSingle();
-  const subscriptionId = subscriptionResult.data?.stripe_subscription_id;
-
-  if (subscriptionId) {
-    try {
-      const subscription = await getLemonSqueezySubscription(subscriptionId);
-      const portalUrl = subscription.attributes.urls?.customer_portal;
-      if (portalUrl) {
-        await logAuditEvent({
-          actorUserId: user.id,
-          targetType: "subscription",
-          targetId: subscriptionId,
-          action: "billing.portal_opened",
-          metadata: buildRequestAuditMetadata(request, { provider: "lemonsqueezy", signed_portal: true })
-        });
-        return NextResponse.redirect(portalUrl, { status: 303 });
-      }
-    } catch {
-      // Fall back to the unsigned portal URL below.
-      logServerError("Lemon Squeezy signed portal lookup failed", { userId: user.id, subscriptionId });
-    }
-  }
-
-  const storeUrl = getLemonSqueezyStoreUrl();
-  if (storeUrl) {
-    await logAuditEvent({
-      actorUserId: user.id,
-      targetType: "subscription",
-      targetId: subscriptionId ?? user.id,
-      action: "billing.portal_opened",
-      metadata: buildRequestAuditMetadata(request, { provider: "lemonsqueezy", signed_portal: false })
-    });
-    return NextResponse.redirect(`${storeUrl.replace(/\/$/, "")}/billing`, { status: 303 });
-  }
-
-  return NextResponse.redirect(`${getAppUrl()}/app/billing?portal=missing-configuration`, { status: 303 });
+  return NextResponse.redirect(getGumroadPortalUrl(), { status: 303 });
 }

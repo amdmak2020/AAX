@@ -107,11 +107,11 @@ export const plans = Object.values(planCatalog).map((plan) => ({
   price: `$${plan.priceMonthly}`,
   description: plan.tagline,
   credits: `${plan.monthlyCredits} boosts / month`,
-  cta: plan.priceMonthly === 0 ? "Start free" : "Coming soon",
+  cta: plan.priceMonthly === 0 ? "Start free" : `Choose ${plan.name}`,
   featured: plan.featured,
   features: plan.features,
-  ctaHref: plan.priceMonthly === 0 ? "/signup" : undefined,
-  ctaDisabled: plan.priceMonthly > 0
+  ctaHref: plan.priceMonthly === 0 ? "/signup" : `/signup?plan=${plan.key}`,
+  ctaDisabled: false
 }));
 
 export const marketingCopy = {

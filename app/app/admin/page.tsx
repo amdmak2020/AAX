@@ -257,7 +257,7 @@ export default async function AppAdminPage({ searchParams }: AdminPageProps) {
                   <p className="mt-1 text-pearl/56">
                     Credits: {subscription.credits_used ?? 0} / {subscription.credits_total ?? 0}
                   </p>
-                  <p className="mt-1 text-pearl/56">Subscription ID: {subscription.stripe_subscription_id ?? "none"}</p>
+                  <p className="mt-1 text-pearl/56">Billing subscription ID: {subscription.stripe_subscription_id ?? "none"}</p>
                   <p className="mt-1 text-pearl/56">
                     Period end: {subscription.current_period_end ? new Date(subscription.current_period_end).toLocaleString() : "not set"}
                   </p>

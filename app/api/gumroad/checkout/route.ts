@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { planCatalog, type PlanKey } from "@/lib/app-config";
+import { type PlanKey } from "@/lib/app-config";
 import { isBillingLocked, isEmailVerified, isAccountSuspended } from "@/lib/access-control";
 import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
 import { getViewerWorkspace } from "@/lib/app-data";
 import { verifyCsrfRequest } from "@/lib/csrf";
-import { getAppUrl, getLemonSqueezyStoreId, getLemonSqueezyVariantId, hasLemonSqueezyCheckoutConfig } from "@/lib/env";
+import { getAppUrl, getGumroadProductUrl, hasGumroadCheckoutConfig } from "@/lib/env";
+import { buildGumroadCheckoutUrl } from "@/lib/gumroad";
 import { reserveIdempotencyKey } from "@/lib/idempotency";
-import { createLemonSqueezyCheckout } from "@/lib/lemonsqueezy";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { logServerError } from "@/lib/secure-log";
 import { getUnexpectedFormFields, requestExceedsBytes } from "@/lib/validation";
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
 
   const planKey = parsed.data.planKey as Exclude<PlanKey, "free">;
 
-  if (!hasLemonSqueezyCheckoutConfig()) {
+  if (!hasGumroadCheckoutConfig()) {
     return NextResponse.redirect(`${getAppUrl()}/app/billing?checkout=missing-configuration`, { status: 303 });
   }
 
@@ -110,22 +110,14 @@ export async function POST(request: Request) {
     return NextResponse.redirect(`${getAppUrl()}/app/billing?checkout=already-submitted`, { status: 303 });
   }
 
-  const storeId = getLemonSqueezyStoreId();
-  const variantId = getLemonSqueezyVariantId(planKey);
-
-  if (!storeId || !variantId) {
+  const productUrl = getGumroadProductUrl(planKey);
+  if (!productUrl) {
     return NextResponse.redirect(`${getAppUrl()}/app/billing?checkout=missing-configuration`, { status: 303 });
   }
 
   try {
-    const checkoutUrl = await createLemonSqueezyCheckout({
-      storeId,
-      variantId,
-      planName: planCatalog[planKey].name,
-      email: workspace.profile.email,
-      name: workspace.profile.full_name,
-      userId: workspace.profile.id,
-      redirectUrl: `${getAppUrl()}/app/billing?checkout=success`
+    const checkoutUrl = buildGumroadCheckoutUrl(productUrl, {
+      email: workspace.profile.email
     });
 
     await logAuditEvent({
@@ -133,18 +125,18 @@ export async function POST(request: Request) {
       targetType: "subscription",
       targetId: workspace.profile.id,
       action: "billing.checkout_started",
-      metadata: buildRequestAuditMetadata(request, { plan_key: planKey, provider: "lemonsqueezy" })
+      metadata: buildRequestAuditMetadata(request, { plan_key: planKey, provider: "gumroad" })
     });
 
     return NextResponse.redirect(checkoutUrl, { status: 303 });
   } catch (error) {
-    logServerError("Lemon Squeezy checkout error", { error, userId: workspace.profile.id, planKey });
+    logServerError("Gumroad checkout error", { error, userId: workspace.profile.id, planKey });
     await logAuditEvent({
       actorUserId: workspace.profile.id,
       targetType: "subscription",
       targetId: workspace.profile.id,
       action: "billing.checkout_failed",
-      metadata: buildRequestAuditMetadata(request, { plan_key: planKey, provider: "lemonsqueezy" })
+      metadata: buildRequestAuditMetadata(request, { plan_key: planKey, provider: "gumroad" })
     });
     return NextResponse.redirect(`${getAppUrl()}/app/billing?checkout=failed`, { status: 303 });
   }

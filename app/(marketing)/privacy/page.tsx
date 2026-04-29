@@ -4,7 +4,7 @@ export default function PrivacyPage() {
       <h1 className="text-5xl font-black">Privacy Policy</h1>
       <div className="mt-6 space-y-6 leading-8 text-pearl/72">
         <p>
-          We store the minimum account, billing, and job data needed to run AutoAgentX: account identity, plan state, job records, upload metadata, and limited operational logs. Payment processing is handled by Lemon Squeezy.
+          We store the minimum account, billing, and job data needed to run AutoAgentX: account identity, plan state, job records, upload metadata, and limited operational logs. Payment processing is handled by Gumroad.
         </p>
         <p>
           Uploaded source files and output file references are associated with your user account and are not meant to be publicly enumerable. We use cookies and related session storage only for authentication, security, and essential product behavior.

@@ -14,7 +14,7 @@ export default async function BillingPage() {
       <div className="max-w-3xl">
         <p className="text-sm font-black uppercase text-mint">Billing</p>
         <h1 className="mt-3 text-4xl font-black md:text-5xl">Plan and credits</h1>
-        <p className="mt-4 leading-7 text-pearl/66">Subscriptions run through Lemon Squeezy. Credits renew with your plan.</p>
+        <p className="mt-4 leading-7 text-pearl/66">Subscriptions run through Gumroad. Credits renew with your plan.</p>
       </div>
       <Card className="mt-8">
         <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
@@ -23,7 +23,7 @@ export default async function BillingPage() {
             <h2 className="mt-1 text-3xl font-black">{account.plan}</h2>
             <p className="mt-2 text-pearl/62">{formatCredits(account.creditsUsed, account.creditsTotal)}</p>
           </div>
-          <form action="/api/lemonsqueezy/portal" method="post">
+          <form action="/api/gumroad/portal" method="post">
             <CsrfHiddenInput />
             <Button type="submit" variant="secondary">
               Manage subscription

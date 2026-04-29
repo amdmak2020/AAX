@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { planCatalog } from "@/lib/app-config";
 import { getViewerWorkspace } from "@/lib/app-data";
-import { getLemonSqueezyVariantId, hasLemonSqueezyApiKey, hasLemonSqueezyCheckoutConfig } from "@/lib/env";
+import { hasGumroadCheckoutConfig, hasGumroadWebhookAuth, hasGumroadWebhookSecret } from "@/lib/env";
 
 const billingMessages = {
   success: {
     tone: "border-mint/20 bg-mint/10",
     title: "Checkout completed",
-    body: "Your subscription was updated. Credits will reflect the new plan as Lemon Squeezy finishes syncing."
+    body: "Your subscription was updated. Credits will reflect the new plan as Gumroad finishes syncing."
   },
   cancelled: {
     tone: "border-pearl/10 bg-white/[0.03]",
@@ -31,8 +31,8 @@ const billingMessages = {
   },
   "missing-configuration": {
     tone: "border-lemon/20 bg-lemon/10",
-    title: "Lemon Squeezy checkout is not ready yet",
-    body: "Add the Lemon Squeezy store ID, store URL, webhook secret, and plan variant IDs to turn on paid checkout."
+    title: "Gumroad checkout is not ready yet",
+    body: "Add your Gumroad checkout link and webhook credential to turn on paid checkout."
   },
   "verify-email": {
     tone: "border-lemon/20 bg-lemon/10",
@@ -52,7 +52,7 @@ const billingMessages = {
   failed: {
     tone: "border-coral/20 bg-coral/10",
     title: "Checkout could not start",
-    body: "We hit a billing setup problem. Double-check your Lemon Squeezy API key, store ID, and plan variant IDs."
+    body: "We hit a billing setup problem. Double-check your Gumroad checkout link and webhook credential."
   }
 } as const;
 
@@ -72,8 +72,9 @@ export default async function AppBillingPage({
     (portalState && billingMessages[portalState as keyof typeof billingMessages]) ||
     null;
 
-  const lemonApiReady = hasLemonSqueezyApiKey();
-  const lemonCheckoutReady = hasLemonSqueezyCheckoutConfig();
+  const gumroadWebhookReady = hasGumroadWebhookAuth();
+  const gumroadUsesSecret = hasGumroadWebhookSecret();
+  const gumroadCheckoutReady = hasGumroadCheckoutConfig();
   const currentPlan = planCatalog[workspace.subscription.plan_key];
   const remainingCredits = Math.max(workspace.subscription.credits_total - workspace.subscription.credits_used, 0);
 
@@ -126,22 +127,20 @@ export default async function AppBillingPage({
             {workspace.subscription.plan_key === "free" ? (
               <Button href="#plans">Upgrade now</Button>
             ) : (
-              <form action="/api/lemonsqueezy/portal" method="post">
+              <form action="/api/gumroad/portal" method="post">
                 <CsrfHiddenInput />
-                <Button
-                  href={!lemonCheckoutReady ? "/app/billing?portal=missing-configuration" : undefined}
-                  type="submit"
-                  variant="secondary"
-                >
+                <Button href={!gumroadCheckoutReady ? "/app/billing?portal=missing-configuration" : undefined} type="submit" variant="secondary">
                   Manage plan
                 </Button>
               </form>
             )}
-            {!lemonCheckoutReady ? (
+            {!gumroadCheckoutReady ? (
               <p className="max-w-[260px] text-xs leading-5 text-pearl/50">
-                {lemonApiReady
-                  ? "Lemon Squeezy API access is in place. Add the store ID, store URL, webhook secret, and plan variant IDs to finish checkout."
-                  : "Add your Lemon Squeezy API key first, then the store ID, store URL, webhook secret, and plan variant IDs."}
+                {gumroadWebhookReady
+                  ? "Your Gumroad webhook check is in place. Add your Gumroad checkout link to finish paid checkout."
+                  : gumroadUsesSecret
+                    ? "Add your Gumroad checkout link to finish paid checkout."
+                    : "Add your Gumroad seller ID or webhook secret first, then your Gumroad checkout link."}
               </p>
             ) : null}
           </div>
@@ -177,9 +176,6 @@ export default async function AppBillingPage({
       <div className="mt-8 grid gap-5 lg:grid-cols-4">
         {Object.values(planCatalog).map((plan) => (
           (() => {
-            const paidPlan = plan.key !== "free" ? plan : null;
-            const variantId = paidPlan ? getLemonSqueezyVariantId(paidPlan.key) : null;
-
             return (
           <PricingCard
             key={plan.key}
@@ -193,27 +189,26 @@ export default async function AppBillingPage({
                   ? "Current plan"
                   : plan.priceMonthly === 0
                     ? "Stay on Free"
-                    : lemonCheckoutReady
+                    : gumroadCheckoutReady
                       ? `Upgrade to ${plan.name}`
-                      : "Finish Lemon Squeezy setup",
+                      : "Finish Gumroad setup",
               featured: plan.featured,
               features: plan.features,
               ctaDisabled: workspace.subscription.plan_key === plan.key,
               ctaHref:
                 plan.priceMonthly === 0
                   ? "/app"
-                  : !lemonCheckoutReady || !variantId
+                  : !gumroadCheckoutReady
                     ? "/app/billing?checkout=missing-configuration"
                     : undefined,
               ctaFormAction:
                 plan.priceMonthly > 0 &&
-                lemonCheckoutReady &&
-                workspace.subscription.plan_key !== plan.key &&
-                Boolean(variantId)
-                  ? "/api/lemonsqueezy/checkout"
+                gumroadCheckoutReady &&
+                workspace.subscription.plan_key !== plan.key
+                  ? "/api/gumroad/checkout"
                   : undefined,
               ctaFields:
-                plan.priceMonthly > 0 && variantId
+                plan.priceMonthly > 0
                   ? {
                       planKey: plan.key
                     }
