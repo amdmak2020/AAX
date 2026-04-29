@@ -70,12 +70,12 @@ export function HomeHeroTool({
         <input name="csrfToken" type="hidden" value={csrfToken} />
         <input name="idempotencyKey" type="hidden" value={idempotencyKey} />
         <div className="overflow-hidden rounded-lg border border-pearl/10 bg-[#121416]/95 shadow-[0_28px_90px_rgba(3,8,14,0.34)]">
-          <div className="border-b border-pearl/10 px-5 py-3 md:px-6 lg:py-2.5">
+          <div className="border-b border-pearl/10 px-5 py-3 md:px-6">
             <p className="text-sm font-black uppercase tracking-[0.18em] text-mint/78">Try it now</p>
-            <h2 className="mt-1 text-[1.65rem] font-black leading-tight md:text-[2rem] lg:text-[1.8rem]">Drop in a clip or paste a link</h2>
+            <h2 className="mt-1 text-[1.65rem] font-black leading-tight md:text-[2rem]">Drop in a clip or paste a link</h2>
           </div>
 
-          <div className="grid gap-4 p-4 md:p-5 lg:grid-cols-[1.18fr_0.82fr] lg:items-start lg:gap-3 lg:p-4">
+          <div className="grid gap-4 p-4 md:p-5 lg:grid-cols-[1.18fr_0.82fr] lg:items-start">
             <div className="grid gap-4">
               <label className="grid gap-2">
                 <span className="inline-flex items-center gap-2 text-sm font-black">
@@ -83,7 +83,7 @@ export function HomeHeroTool({
                   YouTube or X URL
                 </span>
                 <input
-                  className="rounded-lg border border-pearl/10 bg-[#121722] px-4 py-3.5 text-base outline-none transition focus:border-mint focus:shadow-[0_0_0_4px_rgba(61,239,176,0.14)]"
+                  className="rounded-lg border border-pearl/10 bg-[#121722] px-4 py-4 text-base outline-none transition focus:border-mint focus:shadow-[0_0_0_4px_rgba(61,239,176,0.14)]"
                   name="sourceUrl"
                   placeholder="https://youtube.com/... or https://x.com/..."
                   type="url"
@@ -107,7 +107,7 @@ export function HomeHeroTool({
               <label className="grid gap-2">
                 <span className="text-sm font-black">What should the edit emphasize?</span>
                 <textarea
-                  className="min-h-28 rounded-lg border border-pearl/10 bg-[#121722] px-4 py-3.5 text-base outline-none transition focus:border-mint focus:shadow-[0_0_0_4px_rgba(61,239,176,0.14)] lg:min-h-24"
+                  className="min-h-32 rounded-lg border border-pearl/10 bg-[#121722] px-4 py-4 text-base outline-none transition focus:border-mint focus:shadow-[0_0_0_4px_rgba(61,239,176,0.14)]"
                   name="description"
                   placeholder="Stronger intro, cleaner captions, faster pacing, more gameplay under the talking head..."
                   required
@@ -119,7 +119,7 @@ export function HomeHeroTool({
               </div>
 
               <button
-                className="button-sheen inline-flex min-h-14 items-center justify-center rounded-lg bg-mint px-5 py-3 text-base font-bold text-ink transition focus:outline-none focus:ring-2 focus:ring-mint/60 lg:min-h-12"
+                className="button-sheen inline-flex min-h-14 items-center justify-center rounded-lg bg-mint px-5 py-3 text-base font-bold text-ink transition focus:outline-none focus:ring-2 focus:ring-mint/60"
                 data-button-variant="primary"
                 type="submit"
               >
