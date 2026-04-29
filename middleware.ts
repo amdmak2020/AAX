@@ -30,10 +30,21 @@ const contentSecurityPolicy = [
 ].join("; ");
 
 export function middleware(request: NextRequest) {
+  const host = request.headers.get("host") ?? "";
+  const forwardedHost = request.headers.get("x-forwarded-host") ?? host;
+  const forwardedProto = request.headers.get("x-forwarded-proto") ?? request.nextUrl.protocol.replace(":", "");
+
+  if (process.env.NODE_ENV === "production" && /^autoagentx\.com$/i.test(forwardedHost)) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.protocol = `${forwardedProto}:`;
+    redirectUrl.host = "www.autoagentx.com";
+    return NextResponse.redirect(redirectUrl, { status: 308 });
+  }
+
   if (
     process.env.NODE_ENV === "production" &&
     request.headers.get("x-forwarded-proto") === "http" &&
-    !/^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(request.headers.get("host") ?? "")
+    !/^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(host)
   ) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.protocol = "https:";
