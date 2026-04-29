@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
 import { verifyCsrfRequest } from "@/lib/csrf";
-import { getAppUrl } from "@/lib/env";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { getSafeRedirectPath } from "@/lib/security";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -9,6 +8,18 @@ import { getUnexpectedFormFields, requestExceedsBytes } from "@/lib/validation";
 import { sendOperationalAlert } from "@/lib/monitoring";
 
 const maxAuthRequestBytes = 16 * 1024;
+
+function getAuthOrigin(request: Request) {
+  const url = new URL(request.url);
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const forwardedHost = request.headers.get("x-forwarded-host");
+
+  if (forwardedProto && forwardedHost) {
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+
+  return url.origin;
+}
 
 export async function POST(request: Request) {
   if (requestExceedsBytes(request, maxAuthRequestBytes)) {
@@ -50,10 +61,11 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createSupabaseServerClient();
+  const authOrigin = getAuthOrigin(request);
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${getAppUrl()}/auth/callback?next=${encodeURIComponent(next)}`,
+      redirectTo: `${authOrigin}/auth/callback?next=${encodeURIComponent(next)}`,
       queryParams: {
         access_type: "offline",
         prompt: "consent"
@@ -68,12 +80,17 @@ export async function POST(request: Request) {
       action: "auth.google_start_failed",
       metadata: buildRequestAuditMetadata(request)
     });
-    return applyRateLimitHeaders(NextResponse.json({ error: "Could not start Google sign in." }, { status: 400 }), {
-      limit: 12,
-      remaining: limiter.remaining,
-      resetAt: limiter.resetAt,
-      store: limiter.store
-    });
+    return applyRateLimitHeaders(
+      NextResponse.redirect(new URL(`/login?error=${encodeURIComponent("Google sign-in is temporarily unavailable. Try again in a moment.")}`, request.url), {
+        status: 303
+      }),
+      {
+        limit: 12,
+        remaining: limiter.remaining,
+        resetAt: limiter.resetAt,
+        store: limiter.store
+      }
+    );
   }
 
   await logAuditEvent({
