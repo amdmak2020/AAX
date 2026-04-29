@@ -9,6 +9,14 @@ const protectedPrefixes = ["/dashboard", "/create", "/jobs", "/billing", "/setti
 
 const scriptSource = process.env.NODE_ENV === "production" ? "script-src 'self' 'unsafe-inline'" : "script-src 'self' 'unsafe-inline' 'unsafe-eval'";
 const firstPartyFormOrigins = ["'self'", "https://www.autoagentx.com", "https://autoagentx.com"];
+const externalFormOrigins = [
+  "https://gumroad.com",
+  "https://app.gumroad.com",
+  "https://*.gumroad.com",
+  "https://*.supabase.co",
+  "https://accounts.google.com",
+  "https://*.google.com"
+];
 
 const contentSecurityPolicy = [
   "default-src 'self'",
@@ -25,7 +33,7 @@ const contentSecurityPolicy = [
   "worker-src 'self' blob:",
   "manifest-src 'self'",
   "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://drive.google.com https://docs.google.com https://gumroad.com https://app.gumroad.com https://*.gumroad.com",
-  `form-action ${firstPartyFormOrigins.join(" ")} https://gumroad.com https://app.gumroad.com https://*.gumroad.com`,
+  `form-action ${firstPartyFormOrigins.join(" ")} ${externalFormOrigins.join(" ")}`,
   "upgrade-insecure-requests"
 ].join("; ");
 
