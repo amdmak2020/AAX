@@ -71,24 +71,26 @@ export default async function HomePage() {
             <span className="hero-orbit-dot hero-orbit-dot-one" />
             <span className="hero-orbit-dot hero-orbit-dot-two" />
           </div>
-          <div className="mx-auto max-w-7xl text-center">
-            <p className="pulse-chip inline-flex rounded-full border border-pearl/10 bg-white/[0.04] px-4 py-2 text-sm font-bold text-pearl/78">
-              Your content is fine. Your retention isn&apos;t.
-            </p>
-            <h1 className="mt-4 mx-auto max-w-[28ch] text-balance text-[2.7rem] font-black leading-[0.9] tracking-tight md:max-w-[24ch] md:text-[3.7rem] lg:max-w-[26ch] lg:text-[4.15rem]">
-              <span className="block">Turn boring clips into</span>
-              <span className="hero-highlight block text-mint">high-retention shorts</span>
-            </h1>
-            <p className="mx-auto mt-3 max-w-4xl text-[0.96rem] leading-6 text-pearl/66 md:text-[1rem] md:leading-7">
-              Stronger hooks, cleaner subtitles, and tighter pacing for people who keep getting skipped.
-            </p>
+          <div className="mx-auto max-w-7xl lg:grid lg:grid-cols-[0.88fr_1.12fr] lg:items-start lg:gap-8">
+            <div className="text-center lg:pt-8 lg:text-left">
+              <p className="pulse-chip inline-flex rounded-full border border-pearl/10 bg-white/[0.04] px-4 py-2 text-sm font-bold text-pearl/78">
+                Your content is fine. Your retention isn&apos;t.
+              </p>
+              <h1 className="mt-4 max-w-[13ch] text-balance text-[2.7rem] font-black leading-[0.9] tracking-tight md:mx-auto md:text-[3.7rem] lg:mx-0 lg:max-w-[10ch] lg:text-[4.45rem]">
+                <span className="block">Turn boring clips into</span>
+                <span className="hero-highlight block text-mint">high-retention shorts</span>
+              </h1>
+              <p className="mx-auto mt-3 max-w-2xl text-[0.96rem] leading-6 text-pearl/66 md:text-[1rem] md:leading-7 lg:mx-0 lg:max-w-xl">
+                Stronger hooks, cleaner subtitles, and tighter pacing for people who keep getting skipped.
+              </p>
+            </div>
+
+            <div className="mx-auto mt-5 w-full max-w-6xl lg:mt-0">
+              <HomeHeroTool csrfToken={csrfToken} idempotencyKey={randomUUID()} isLoggedIn={isLoggedIn} uploadLimitMb={sourceUploadMaxMb} />
+            </div>
           </div>
 
-          <div className="mx-auto mt-4 max-w-6xl">
-            <HomeHeroTool csrfToken={csrfToken} idempotencyKey={randomUUID()} isLoggedIn={isLoggedIn} uploadLimitMb={sourceUploadMaxMb} />
-          </div>
-
-          <div className="mt-4 hidden overflow-hidden rounded-full border border-pearl/10 bg-white/[0.03] lg:block">
+          <div className="mt-4 hidden overflow-hidden rounded-full border border-pearl/10 bg-white/[0.03] xl:block">
             <div className="ticker-track py-3">
               {[...motionLabels, ...motionLabels].map((label, index) => (
                 <span className="ticker-pill" key={`${label}-${index}`}>
@@ -98,7 +100,7 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <div className="mt-4 hidden gap-3 sm:grid-cols-3 lg:grid">
+          <div className="mt-4 hidden gap-3 sm:grid-cols-3 xl:grid">
             <div className="hero-stat-card">
               <span className="hero-stat-value">Faster</span>
               <span className="hero-stat-label">first-second hook</span>
