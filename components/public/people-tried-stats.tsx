@@ -75,6 +75,9 @@ export function PeopleTriedStats() {
             <div className="people-hype-orbit people-hype-orbit-two" aria-hidden="true" />
             <div className="people-hype-ping people-hype-ping-one" aria-hidden="true" />
             <div className="people-hype-ping people-hype-ping-two" aria-hidden="true" />
+            <div className="people-hype-grid" aria-hidden="true" />
+            <div className="people-hype-burst people-hype-burst-one" aria-hidden="true" />
+            <div className="people-hype-burst people-hype-burst-two" aria-hidden="true" />
 
             <div className="mb-4 flex flex-wrap items-center gap-3">
               <span className="people-hype-live">
@@ -98,6 +101,11 @@ export function PeopleTriedStats() {
                   <p className="people-hype-value mt-6">{formatCompact(snapshot.users)}</p>
                   <p className="people-hype-copy mt-2">current users right now</p>
                   <p className="people-hype-micro mt-4">live and shifting</p>
+                  <div className="people-hype-dots" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
                   <div className="people-hype-scan people-hype-scan-mint" aria-hidden="true" />
                 </div>
                 </InteractiveSurface>
@@ -115,6 +123,11 @@ export function PeopleTriedStats() {
                   <p className="people-hype-value mt-6">{formatCompact(snapshot.videos)}</p>
                   <p className="people-hype-copy mt-2">videos made so far</p>
                   <p className="people-hype-micro mt-4">live and climbing</p>
+                  <div className="people-hype-dots people-hype-dots-sky" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
                   <div className="people-hype-scan people-hype-scan-sky" aria-hidden="true" />
                 </div>
                 </InteractiveSurface>
