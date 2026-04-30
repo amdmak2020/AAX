@@ -24,6 +24,25 @@ export function getN8nProcessorSecret() {
   return process.env.N8N_PROCESSOR_SECRET ?? process.env.N8N_WEBHOOK_SECRET ?? null;
 }
 
+export function getN8nProcessorEndpoint() {
+  const raw = process.env.N8N_PROCESSOR_ENDPOINT?.trim() || process.env.N8N_WEBHOOK_URL?.trim() || null;
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const url = new URL(raw);
+    if (url.pathname.includes("/webhook-test/")) {
+      url.pathname = url.pathname.replace("/webhook-test/", "/webhook/");
+      return url.toString();
+    }
+  } catch {
+    return raw;
+  }
+
+  return raw;
+}
+
 export function hasGumroadWebhookSecret() {
   return Boolean(process.env.GUMROAD_WEBHOOK_SECRET);
 }
