@@ -4,6 +4,7 @@ import Script from "next/script";
 import { InteractiveSurface } from "@/components/effects/interactive-surface";
 import { MagneticPanel } from "@/components/effects/magnetic-panel";
 import { HomeHeroTool } from "@/components/public/home-hero-tool";
+import { PeopleTriedStats } from "@/components/public/people-tried-stats";
 import { CtaBlock } from "@/components/public/cta-block";
 import { PricingCard } from "@/components/public/pricing-card";
 import { SectionWrapper } from "@/components/public/section-wrapper";
@@ -185,6 +186,8 @@ export default async function HomePage() {
 
         </div>
       </section>
+
+      <PeopleTriedStats />
 
       <SectionWrapper
         body="Tell the editor what feels off, then let it rework the clip without sending you into a full editing workflow."

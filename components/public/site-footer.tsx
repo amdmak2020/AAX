@@ -4,7 +4,6 @@ import { brand } from "@/lib/app-config";
 
 const links = [
   { label: "Pricing", href: "/pricing" },
-  { label: "Examples", href: "/examples" },
   { label: "Contact", href: "/contact" },
   { label: "Privacy", href: "/privacy" },
   { label: "Terms", href: "/terms" },
