@@ -61,10 +61,25 @@ export function PeopleTriedStats() {
   return (
     <section className="px-5 py-6 md:py-8">
       <div className="mx-auto max-w-7xl">
-        <div className="people-hype-shell rounded-lg border border-pearl/10 p-4 md:p-5">
-          <div className="grid gap-4 lg:grid-cols-2">
-            <MagneticPanel>
-              <InteractiveSurface className="rounded-lg">
+        <InteractiveSurface className="rounded-lg">
+          <div className="people-hype-shell rounded-lg border border-pearl/10 p-4 md:p-5">
+            <div className="people-hype-orbit people-hype-orbit-one" aria-hidden="true" />
+            <div className="people-hype-orbit people-hype-orbit-two" aria-hidden="true" />
+            <div className="people-hype-ping people-hype-ping-one" aria-hidden="true" />
+            <div className="people-hype-ping people-hype-ping-two" aria-hidden="true" />
+
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <span className="people-hype-live">
+                <span className="people-hype-live-dot" />
+                live now
+              </span>
+              <span className="people-hype-flash">people clicking</span>
+              <span className="people-hype-flash people-hype-flash-sky">clips boosting</span>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <MagneticPanel>
+                <InteractiveSurface className="rounded-lg">
                 <div className="people-hype-card people-hype-card-mint interactive-card interactive-lift rounded-lg p-5 md:p-6">
                   <div className="flex items-center justify-between">
                     <div className="people-hype-icon text-mint">
@@ -73,14 +88,15 @@ export function PeopleTriedStats() {
                     <span className="people-hype-tag">users</span>
                   </div>
                   <p className="people-hype-value mt-6">{formatCompact(snapshot.users)}</p>
-                  <p className="people-hype-copy mt-2">testing clips right now</p>
-                  <p className="people-hype-micro mt-4">up again in about {snapshot.minutesUntilRefresh} min</p>
+                  <p className="people-hype-copy mt-2">current users right now</p>
+                  <p className="people-hype-micro mt-4">ticks upward again in {snapshot.minutesUntilRefresh} min</p>
+                  <div className="people-hype-scan people-hype-scan-mint" aria-hidden="true" />
                 </div>
-              </InteractiveSurface>
-            </MagneticPanel>
+                </InteractiveSurface>
+              </MagneticPanel>
 
-            <MagneticPanel>
-              <InteractiveSurface className="rounded-lg">
+              <MagneticPanel>
+                <InteractiveSurface className="rounded-lg">
                 <div className="people-hype-card people-hype-card-sky interactive-card interactive-lift rounded-lg p-5 md:p-6">
                   <div className="flex items-center justify-between">
                     <div className="people-hype-icon people-hype-icon-sky text-sky">
@@ -89,13 +105,15 @@ export function PeopleTriedStats() {
                     <span className="people-hype-tag">videos</span>
                   </div>
                   <p className="people-hype-value mt-6">{formatCompact(snapshot.videos)}</p>
-                  <p className="people-hype-copy mt-2">boosted through the machine</p>
+                  <p className="people-hype-copy mt-2">videos made so far</p>
                   <p className="people-hype-micro mt-4">slow climb, fast dopamine</p>
+                  <div className="people-hype-scan people-hype-scan-sky" aria-hidden="true" />
                 </div>
-              </InteractiveSurface>
-            </MagneticPanel>
+                </InteractiveSurface>
+              </MagneticPanel>
+            </div>
           </div>
-        </div>
+        </InteractiveSurface>
       </div>
     </section>
   );

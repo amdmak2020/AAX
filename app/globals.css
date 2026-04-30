@@ -1101,6 +1101,55 @@ select:focus {
     0 24px 70px rgba(0, 0, 0, 0.26);
 }
 
+.people-hype-orbit,
+.people-hype-ping {
+  pointer-events: none;
+  position: absolute;
+  border-radius: 999px;
+}
+
+.people-hype-orbit {
+  border: 1px solid rgba(255, 250, 240, 0.08);
+  opacity: 0.4;
+}
+
+.people-hype-orbit-one {
+  width: 180px;
+  height: 180px;
+  right: -28px;
+  top: -26px;
+  animation: people-hype-orbit-one 7s ease-in-out infinite;
+}
+
+.people-hype-orbit-two {
+  width: 120px;
+  height: 120px;
+  left: -20px;
+  bottom: -18px;
+  animation: people-hype-orbit-two 6.3s ease-in-out infinite;
+}
+
+.people-hype-ping {
+  background: radial-gradient(circle, rgba(66, 246, 177, 0.88), rgba(66, 246, 177, 0));
+  filter: blur(1px);
+}
+
+.people-hype-ping-one {
+  width: 12px;
+  height: 12px;
+  top: 22%;
+  left: 22%;
+  animation: people-hype-ping-wander 5.2s linear infinite;
+}
+
+.people-hype-ping-two {
+  width: 10px;
+  height: 10px;
+  right: 18%;
+  bottom: 24%;
+  animation: people-hype-ping-wander 4.8s linear infinite reverse;
+}
+
 .people-hype-shell::before {
   content: "";
   position: absolute;
@@ -1109,6 +1158,46 @@ select:focus {
   background: linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.06) 32%, transparent 62%);
   transform: translateX(-130%);
   animation: people-hype-sheen 8s ease-in-out infinite;
+}
+
+.people-hype-live,
+.people-hype-flash {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 250, 240, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 250, 240, 0.68);
+}
+
+.people-hype-live {
+  border-color: rgba(66, 246, 177, 0.18);
+  background: rgba(66, 246, 177, 0.08);
+  color: #42f6b1;
+  box-shadow: 0 0 20px rgba(66, 246, 177, 0.12);
+}
+
+.people-hype-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #42f6b1;
+  box-shadow: 0 0 14px rgba(66, 246, 177, 0.6);
+  animation: people-hype-live-dot 1.8s ease-in-out infinite;
+}
+
+.people-hype-flash {
+  animation: people-hype-flash 2.6s ease-in-out infinite;
+}
+
+.people-hype-flash-sky {
+  animation-delay: 0.65s;
 }
 
 .people-hype-mini,
@@ -1122,6 +1211,7 @@ select:focus {
   position: relative;
   overflow: hidden;
   min-height: 250px;
+  isolation: isolate;
 }
 
 .people-hype-card::before {
@@ -1216,6 +1306,26 @@ select:focus {
   color: rgba(255, 250, 240, 0.44);
 }
 
+.people-hype-scan {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  bottom: 8%;
+  height: 20px;
+  border-radius: 999px;
+  filter: blur(18px);
+  opacity: 0.95;
+  animation: people-hype-scan 3.2s ease-in-out infinite;
+}
+
+.people-hype-scan-mint {
+  background: linear-gradient(90deg, rgba(66, 246, 177, 0.04), rgba(66, 246, 177, 0.34), rgba(66, 246, 177, 0.04));
+}
+
+.people-hype-scan-sky {
+  background: linear-gradient(90deg, rgba(85, 217, 255, 0.04), rgba(85, 217, 255, 0.34), rgba(85, 217, 255, 0.04));
+}
+
 @keyframes people-hype-sheen {
   0%,
   100% {
@@ -1231,6 +1341,76 @@ select:focus {
   70% {
     transform: translateX(130%);
     opacity: 0;
+  }
+}
+
+@keyframes people-hype-orbit-one {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate3d(-10px, 8px, 0) scale(1.04);
+  }
+}
+
+@keyframes people-hype-orbit-two {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate3d(8px, -8px, 0) scale(1.06);
+  }
+}
+
+@keyframes people-hype-ping-wander {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  25% {
+    transform: translate3d(10px, -6px, 0);
+  }
+
+  50% {
+    transform: translate3d(-6px, -14px, 0);
+  }
+
+  75% {
+    transform: translate3d(-12px, 8px, 0);
+  }
+
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes people-hype-live-dot {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.35);
+    opacity: 0.7;
+  }
+}
+
+@keyframes people-hype-flash {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.72;
+  }
+
+  50% {
+    transform: translateY(-2px);
+    opacity: 1;
   }
 }
 
@@ -1257,6 +1437,19 @@ select:focus {
   50% {
     transform: scale(1.015);
     text-shadow: 0 0 36px rgba(255, 255, 255, 0.08);
+  }
+}
+
+@keyframes people-hype-scan {
+  0%,
+  100% {
+    transform: translateX(-2%) scaleX(0.94);
+    opacity: 0.82;
+  }
+
+  50% {
+    transform: translateX(2%) scaleX(1.03);
+    opacity: 1;
   }
 }
 
