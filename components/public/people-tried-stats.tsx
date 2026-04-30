@@ -10,24 +10,28 @@ const baselineUsers = 387;
 const baselineVideos = 21060;
 const minHourlyGrowth = 0.0001;
 const maxHourlyGrowth = 0.0005;
+const maxUsersSwing = 0.008;
 
 function seededUnitInterval(seed: number) {
   const value = Math.sin(seed * 12.9898) * 43758.5453;
   return value - Math.floor(value);
 }
 
-function growFromBaseline(baseline: number, hourCount: number, salt: number) {
+function growFromBaselineByMinute(baseline: number, minuteCount: number, salt: number) {
   let total = baseline;
-  for (let hour = 0; hour < hourCount; hour += 1) {
-    const unit = seededUnitInterval(hour + salt);
-    const growth = minHourlyGrowth + unit * (maxHourlyGrowth - minHourlyGrowth);
+  const minMinuteGrowth = minHourlyGrowth / 60;
+  const maxMinuteGrowth = maxHourlyGrowth / 60;
+
+  for (let minute = 0; minute < minuteCount; minute += 1) {
+    const unit = seededUnitInterval(minute + salt);
+    const growth = minMinuteGrowth + unit * (maxMinuteGrowth - minMinuteGrowth);
     total *= 1 + growth;
   }
 
   return Math.round(total);
 }
 
-function useHourlyGrowthSnapshot() {
+function useLiveGrowthSnapshot() {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -41,13 +45,17 @@ function useHourlyGrowthSnapshot() {
   return useMemo(() => {
     const baseline = new Date(baselineIso);
     const elapsedMs = Math.max(0, now.getTime() - baseline.getTime());
-    const hoursElapsed = Math.floor(elapsedMs / (60 * 60 * 1000));
-    const users = growFromBaseline(baselineUsers, hoursElapsed, 17);
-    const videos = growFromBaseline(baselineVideos, hoursElapsed, 79);
-    const nextHourAt = new Date(baseline.getTime() + (hoursElapsed + 1) * 60 * 60 * 1000);
-    const minutesUntilRefresh = Math.max(1, Math.ceil((nextHourAt.getTime() - now.getTime()) / 60000));
+    const minutesElapsed = Math.floor(elapsedMs / 60000);
+    const daysElapsed = elapsedMs / (24 * 60 * 60 * 1000);
 
-    return { users, videos, minutesUntilRefresh };
+    const usersBaseline = baselineUsers * 1.02 ** daysElapsed;
+    const usersSwingSeed = seededUnitInterval(minutesElapsed + 17);
+    const usersSwing = (usersSwingSeed * 2 - 1) * maxUsersSwing;
+    const users = Math.max(1, Math.round(usersBaseline * (1 + usersSwing)));
+
+    const videos = growFromBaselineByMinute(baselineVideos, minutesElapsed, 79);
+
+    return { users, videos };
   }, [now]);
 }
 
@@ -56,7 +64,7 @@ function formatCompact(value: number) {
 }
 
 export function PeopleTriedStats() {
-  const snapshot = useHourlyGrowthSnapshot();
+  const snapshot = useLiveGrowthSnapshot();
 
   return (
     <section className="px-5 py-6 md:py-8">
@@ -89,7 +97,7 @@ export function PeopleTriedStats() {
                   </div>
                   <p className="people-hype-value mt-6">{formatCompact(snapshot.users)}</p>
                   <p className="people-hype-copy mt-2">current users right now</p>
-                  <p className="people-hype-micro mt-4">ticks upward again in {snapshot.minutesUntilRefresh} min</p>
+                  <p className="people-hype-micro mt-4">live and shifting</p>
                   <div className="people-hype-scan people-hype-scan-mint" aria-hidden="true" />
                 </div>
                 </InteractiveSurface>
@@ -106,7 +114,7 @@ export function PeopleTriedStats() {
                   </div>
                   <p className="people-hype-value mt-6">{formatCompact(snapshot.videos)}</p>
                   <p className="people-hype-copy mt-2">videos made so far</p>
-                  <p className="people-hype-micro mt-4">slow climb, fast dopamine</p>
+                  <p className="people-hype-micro mt-4">live and climbing</p>
                   <div className="people-hype-scan people-hype-scan-sky" aria-hidden="true" />
                 </div>
                 </InteractiveSurface>
