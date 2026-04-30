@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import type { CookieOptions } from "@supabase/ssr";
 import { buildRequestAuditMetadata, logAuditEvent } from "@/lib/audit";
 import { verifyCsrfRequest } from "@/lib/csrf";
+import { getEnv } from "@/lib/env";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { getSafeRedirectPath } from "@/lib/security";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { hardenSupabaseCookieOptions } from "@/lib/supabase/cookies";
 import { getUnexpectedFormFields, requestExceedsBytes } from "@/lib/validation";
 import { sendOperationalAlert } from "@/lib/monitoring";
 
@@ -19,6 +22,45 @@ function getAuthOrigin(request: Request) {
   }
 
   return url.origin;
+}
+
+function createOAuthSupabaseClient(request: Request, pendingCookies: { name: string; value: string; options: CookieOptions }[]) {
+  const url = getEnv("NEXT_PUBLIC_SUPABASE_URL");
+  const key = getEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+
+  if (!url || !key) {
+    throw new Error("Supabase environment variables are not configured.");
+  }
+
+  return createServerClient(url, key, {
+    cookies: {
+      getAll() {
+        return request.headers.get("cookie")
+          ? request.headers
+              .get("cookie")!
+              .split(/;\s*/)
+              .filter(Boolean)
+              .map((pair) => {
+                const index = pair.indexOf("=");
+                return {
+                  name: index >= 0 ? pair.slice(0, index) : pair,
+                  value: index >= 0 ? pair.slice(index + 1) : ""
+                };
+              })
+          : [];
+      },
+      setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+        pendingCookies.push(...cookiesToSet.map((cookie) => ({ ...cookie, options: hardenSupabaseCookieOptions(cookie.options) })));
+      }
+    }
+  });
+}
+
+function attachPendingCookies(response: NextResponse, pendingCookies: { name: string; value: string; options: CookieOptions }[]) {
+  for (const { name, value, options } of pendingCookies) {
+    response.cookies.set(name, value, options);
+  }
+  return response;
 }
 
 export async function POST(request: Request) {
@@ -60,7 +102,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = await createSupabaseServerClient();
+  const pendingCookies: { name: string; value: string; options: CookieOptions }[] = [];
+  const supabase = createOAuthSupabaseClient(request, pendingCookies);
   const authOrigin = getAuthOrigin(request);
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
@@ -81,9 +124,12 @@ export async function POST(request: Request) {
       metadata: buildRequestAuditMetadata(request)
     });
     return applyRateLimitHeaders(
-      NextResponse.redirect(new URL(`/login?error=${encodeURIComponent("Google sign-in is temporarily unavailable. Try again in a moment.")}`, request.url), {
-        status: 303
-      }),
+      attachPendingCookies(
+        NextResponse.redirect(new URL(`/login?error=${encodeURIComponent("Google sign-in is temporarily unavailable. Try again in a moment.")}`, request.url), {
+          status: 303
+        }),
+        pendingCookies
+      ),
       {
         limit: 12,
         remaining: limiter.remaining,
@@ -100,10 +146,13 @@ export async function POST(request: Request) {
     metadata: buildRequestAuditMetadata(request)
   });
 
-  return applyRateLimitHeaders(NextResponse.redirect(data.url, { status: 303 }), {
-    limit: 12,
-    remaining: limiter.remaining,
-    resetAt: limiter.resetAt,
-    store: limiter.store
-  });
+  return applyRateLimitHeaders(
+    attachPendingCookies(NextResponse.redirect(data.url, { status: 303 }), pendingCookies),
+    {
+      limit: 12,
+      remaining: limiter.remaining,
+      resetAt: limiter.resetAt,
+      store: limiter.store
+    }
+  );
 }
