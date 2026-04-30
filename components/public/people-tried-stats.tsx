@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Sparkles, UsersRound, Video, Zap } from "lucide-react";
+import { UsersRound, Video } from "lucide-react";
 import { MagneticPanel } from "@/components/effects/magnetic-panel";
 import { InteractiveSurface } from "@/components/effects/interactive-surface";
 
@@ -59,29 +59,13 @@ export function PeopleTriedStats() {
   const snapshot = useHourlyGrowthSnapshot();
 
   return (
-    <section className="px-5 py-8 md:py-10">
+    <section className="px-5 py-6 md:py-8">
       <div className="mx-auto max-w-7xl">
-        <div className="people-hype-shell rounded-lg border border-pearl/10 p-5 md:p-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="people-hype-chip inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-[0.24em] text-mint">
-                <Sparkles className="h-3.5 w-3.5" />
-                People tried
-              </p>
-              <h2 className="mt-4 max-w-4xl text-3xl font-black tracking-tight md:text-[2.7rem] lg:text-[3.15rem]">
-                Already moving. Already posting.
-              </h2>
-            </div>
-            <div className="people-hype-mini rounded-lg border border-pearl/10 px-4 py-3">
-              <p className="text-xs font-black uppercase tracking-[0.24em] text-pearl/48">Live pulse</p>
-              <p className="mt-2 text-lg font-black text-pearl">refresh in {snapshot.minutesUntilRefresh} min</p>
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr_0.8fr]">
+        <div className="people-hype-shell rounded-lg border border-pearl/10 p-4 md:p-5">
+          <div className="grid gap-4 lg:grid-cols-2">
             <MagneticPanel>
               <InteractiveSurface className="rounded-lg">
-                <div className="people-hype-card interactive-card interactive-lift rounded-lg p-5">
+                <div className="people-hype-card people-hype-card-mint interactive-card interactive-lift rounded-lg p-5 md:p-6">
                   <div className="flex items-center justify-between">
                     <div className="people-hype-icon text-mint">
                       <UsersRound className="h-7 w-7" />
@@ -90,13 +74,14 @@ export function PeopleTriedStats() {
                   </div>
                   <p className="people-hype-value mt-6">{formatCompact(snapshot.users)}</p>
                   <p className="people-hype-copy mt-2">testing clips right now</p>
+                  <p className="people-hype-micro mt-4">up again in about {snapshot.minutesUntilRefresh} min</p>
                 </div>
               </InteractiveSurface>
             </MagneticPanel>
 
             <MagneticPanel>
               <InteractiveSurface className="rounded-lg">
-                <div className="people-hype-card interactive-card interactive-lift rounded-lg p-5">
+                <div className="people-hype-card people-hype-card-sky interactive-card interactive-lift rounded-lg p-5 md:p-6">
                   <div className="flex items-center justify-between">
                     <div className="people-hype-icon people-hype-icon-sky text-sky">
                       <Video className="h-7 w-7" />
@@ -105,22 +90,10 @@ export function PeopleTriedStats() {
                   </div>
                   <p className="people-hype-value mt-6">{formatCompact(snapshot.videos)}</p>
                   <p className="people-hype-copy mt-2">boosted through the machine</p>
+                  <p className="people-hype-micro mt-4">slow climb, fast dopamine</p>
                 </div>
               </InteractiveSurface>
             </MagneticPanel>
-
-            <div className="people-hype-side rounded-lg p-5">
-              <div className="flex items-center gap-3">
-                <div className="people-hype-icon people-hype-icon-coral text-coral">
-                  <Zap className="h-6 w-6" />
-                </div>
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.24em] text-pearl/48">Tiny climb</p>
-                  <p className="mt-1 text-xl font-black text-pearl">+0.01% to +0.05%</p>
-                </div>
-              </div>
-              <p className="mt-4 text-sm leading-6 text-pearl/60">Slow growth. Fast vibe.</p>
-            </div>
           </div>
         </div>
       </div>
