@@ -1089,6 +1089,126 @@ select:focus {
   background: linear-gradient(90deg, rgba(66, 246, 177, 0.78), rgba(66, 246, 177, 0.58));
 }
 
+.people-hype-shell {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 12% 24%, rgba(130, 88, 255, 0.16), transparent 24%),
+    radial-gradient(circle at 86% 20%, rgba(66, 246, 177, 0.12), transparent 22%),
+    linear-gradient(135deg, rgba(27, 20, 46, 0.95), rgba(11, 20, 29, 0.94));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 24px 70px rgba(0, 0, 0, 0.26);
+}
+
+.people-hype-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.06) 32%, transparent 62%);
+  transform: translateX(-130%);
+  animation: people-hype-sheen 8s ease-in-out infinite;
+}
+
+.people-hype-chip {
+  border: 1px solid rgba(66, 246, 177, 0.22);
+  background: rgba(66, 246, 177, 0.1);
+  box-shadow: 0 0 24px rgba(66, 246, 177, 0.12);
+}
+
+.people-hype-mini,
+.people-hype-side,
+.people-hype-card {
+  border: 1px solid rgba(255, 250, 240, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.025));
+}
+
+.people-hype-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.people-hype-card::before {
+  content: "";
+  position: absolute;
+  inset: auto -8% -24px;
+  height: 68px;
+  border-radius: 999px;
+  filter: blur(20px);
+  opacity: 0.8;
+}
+
+.people-hype-card:first-child::before {
+  background: radial-gradient(circle, rgba(66, 246, 177, 0.24), rgba(66, 246, 177, 0));
+}
+
+.people-hype-card:nth-child(2)::before {
+  background: radial-gradient(circle, rgba(85, 217, 255, 0.24), rgba(85, 217, 255, 0));
+}
+
+.people-hype-icon {
+  border-radius: 8px;
+  background: rgba(66, 246, 177, 0.12);
+  padding: 12px;
+  box-shadow: 0 0 30px rgba(66, 246, 177, 0.1);
+}
+
+.people-hype-icon-sky {
+  background: rgba(85, 217, 255, 0.12);
+  box-shadow: 0 0 30px rgba(85, 217, 255, 0.1);
+}
+
+.people-hype-icon-coral {
+  background: rgba(255, 130, 110, 0.12);
+  box-shadow: 0 0 30px rgba(255, 130, 110, 0.12);
+}
+
+.people-hype-tag {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 250, 240, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: rgba(255, 250, 240, 0.56);
+}
+
+.people-hype-value {
+  font-size: clamp(3rem, 7vw, 5.3rem);
+  line-height: 0.9;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  color: #fffaf0;
+  text-shadow: 0 0 28px rgba(255, 255, 255, 0.06);
+}
+
+.people-hype-copy {
+  font-size: 1rem;
+  font-weight: 700;
+  color: rgba(255, 250, 240, 0.72);
+}
+
+@keyframes people-hype-sheen {
+  0%,
+  100% {
+    transform: translateX(-130%);
+    opacity: 0;
+  }
+
+  18%,
+  50% {
+    opacity: 1;
+  }
+
+  70% {
+    transform: translateX(130%);
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

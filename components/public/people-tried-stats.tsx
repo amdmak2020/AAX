@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Sparkles, UsersRound, Video } from "lucide-react";
+import { Sparkles, UsersRound, Video, Zap } from "lucide-react";
 import { MagneticPanel } from "@/components/effects/magnetic-panel";
 import { InteractiveSurface } from "@/components/effects/interactive-surface";
 
@@ -59,73 +59,67 @@ export function PeopleTriedStats() {
   const snapshot = useHourlyGrowthSnapshot();
 
   return (
-    <section className="px-5 py-10 md:py-12">
+    <section className="px-5 py-8 md:py-10">
       <div className="mx-auto max-w-7xl">
-        <div className="rounded-lg border border-pearl/10 bg-[linear-gradient(135deg,rgba(31,21,47,0.88),rgba(12,23,31,0.92))] p-5 shadow-[0_20px_70px_rgba(0,0,0,0.28)] md:p-7">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="people-hype-shell rounded-lg border border-pearl/10 p-5 md:p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="inline-flex items-center gap-2 rounded-full border border-mint/20 bg-mint/10 px-3 py-1.5 text-xs font-black uppercase tracking-[0.24em] text-mint">
+              <p className="people-hype-chip inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-[0.24em] text-mint">
                 <Sparkles className="h-3.5 w-3.5" />
                 People tried
               </p>
-              <h2 className="mt-4 max-w-3xl text-3xl font-black tracking-tight md:text-[2.55rem]">
-                Real people are already testing clips through AutoAgentX.
+              <h2 className="mt-4 max-w-4xl text-3xl font-black tracking-tight md:text-[2.7rem] lg:text-[3.15rem]">
+                Already moving. Already posting.
               </h2>
             </div>
-            <p className="max-w-md text-sm leading-6 text-pearl/62 md:text-right">
-              The counters breathe upward a little every hour so the page feels alive without screaming for attention.
-            </p>
+            <div className="people-hype-mini rounded-lg border border-pearl/10 px-4 py-3">
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-pearl/48">Live pulse</p>
+              <p className="mt-2 text-lg font-black text-pearl">refresh in {snapshot.minutesUntilRefresh} min</p>
+            </div>
           </div>
 
-          <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_1fr_auto]">
+          <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr_0.8fr]">
             <MagneticPanel>
               <InteractiveSurface className="rounded-lg">
-                <div className="interactive-card interactive-lift rounded-lg border border-pearl/10 bg-white/[0.04] p-5">
+                <div className="people-hype-card interactive-card interactive-lift rounded-lg p-5">
                   <div className="flex items-center justify-between">
-                    <div className="rounded-lg bg-mint/12 p-3 text-mint">
-                      <UsersRound className="h-6 w-6" />
+                    <div className="people-hype-icon text-mint">
+                      <UsersRound className="h-7 w-7" />
                     </div>
-                    <span className="rounded-full border border-pearl/10 bg-white/[0.03] px-3 py-1 text-xs font-bold uppercase tracking-[0.22em] text-pearl/60">
-                      Current users
-                    </span>
+                    <span className="people-hype-tag">users</span>
                   </div>
-                  <p className="mt-6 text-4xl font-black tracking-tight text-pearl md:text-5xl">
-                    {formatCompact(snapshot.users)}
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-pearl/62">
-                    Creators who already opened the tool, tested clips, and started shaping faster edits.
-                  </p>
+                  <p className="people-hype-value mt-6">{formatCompact(snapshot.users)}</p>
+                  <p className="people-hype-copy mt-2">testing clips right now</p>
                 </div>
               </InteractiveSurface>
             </MagneticPanel>
 
             <MagneticPanel>
               <InteractiveSurface className="rounded-lg">
-                <div className="interactive-card interactive-lift rounded-lg border border-pearl/10 bg-white/[0.04] p-5">
+                <div className="people-hype-card interactive-card interactive-lift rounded-lg p-5">
                   <div className="flex items-center justify-between">
-                    <div className="rounded-lg bg-sky/12 p-3 text-sky">
-                      <Video className="h-6 w-6" />
+                    <div className="people-hype-icon people-hype-icon-sky text-sky">
+                      <Video className="h-7 w-7" />
                     </div>
-                    <span className="rounded-full border border-pearl/10 bg-white/[0.03] px-3 py-1 text-xs font-bold uppercase tracking-[0.22em] text-pearl/60">
-                      Videos made
-                    </span>
+                    <span className="people-hype-tag">videos</span>
                   </div>
-                  <p className="mt-6 text-4xl font-black tracking-tight text-pearl md:text-5xl">
-                    {formatCompact(snapshot.videos)}
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-pearl/62">
-                    Clips pushed through the workflow so far, from first tests to finished boosted outputs.
-                  </p>
+                  <p className="people-hype-value mt-6">{formatCompact(snapshot.videos)}</p>
+                  <p className="people-hype-copy mt-2">boosted through the machine</p>
                 </div>
               </InteractiveSurface>
             </MagneticPanel>
 
-            <div className="rounded-lg border border-pearl/10 bg-white/[0.03] p-5 lg:w-[16rem]">
-              <p className="text-xs font-black uppercase tracking-[0.24em] text-pearl/48">Live pulse</p>
-              <p className="mt-4 text-lg font-black text-pearl">Next refresh in about {snapshot.minutesUntilRefresh} min</p>
-              <p className="mt-3 text-sm leading-6 text-pearl/60">
-                Gentle hourly growth between 0.01% and 0.05%, so the numbers keep moving without feeling fake or noisy.
-              </p>
+            <div className="people-hype-side rounded-lg p-5">
+              <div className="flex items-center gap-3">
+                <div className="people-hype-icon people-hype-icon-coral text-coral">
+                  <Zap className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.24em] text-pearl/48">Tiny climb</p>
+                  <p className="mt-1 text-xl font-black text-pearl">+0.01% to +0.05%</p>
+                </div>
+              </div>
+              <p className="mt-4 text-sm leading-6 text-pearl/60">Slow growth. Fast vibe.</p>
             </div>
           </div>
         </div>
