@@ -4,6 +4,65 @@ import type { ProcessorProvider, ProcessorWebhookResult, ProcessorSubmitInput, P
 
 const processorSubmitTimeoutMs = 15_000;
 const maxProcessorErrorText = 500;
+const transientRetryCount = 3;
+const transientRetryDelayMs = 1_200;
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function looksLikeTransientWebhookReadinessIssue(message: string) {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("not registered") ||
+    normalized.includes("test workflow") ||
+    normalized.includes("pipeline was not ready") ||
+    normalized.includes("workflow was not active") ||
+    normalized.includes("webhook is not registered")
+  );
+}
+
+async function submitToN8n(endpoint: URL, secret: string | null, input: ProcessorSubmitInput) {
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(secret ? { "x-processor-secret": secret } : {})
+      },
+      body: JSON.stringify(input),
+      signal: AbortSignal.timeout(processorSubmitTimeoutMs)
+    });
+  } catch (error) {
+    return {
+      accepted: false,
+      status: "failed" as const,
+      message: error instanceof Error && error.name === "TimeoutError" ? "Processor timed out before accepting the job." : "Processor was unavailable."
+    };
+  }
+
+  if (!response.ok) {
+    const message = await response
+      .text()
+      .then((text) => text.slice(0, maxProcessorErrorText))
+      .catch(() => `Processor returned ${response.status}.`);
+    return {
+      accepted: false,
+      status: "failed" as const,
+      message
+    };
+  }
+
+  const json = (await response.json().catch(() => null)) as { externalJobId?: string; jobId?: string } | null;
+
+  return {
+    accepted: true,
+    externalJobId: json?.externalJobId ?? json?.jobId ?? null,
+    status: "queued" as const,
+    message: "External processor accepted the job."
+  };
+}
 
 export const n8nProcessorProvider: ProcessorProvider = {
   key: "n8n",
@@ -30,45 +89,28 @@ export const n8nProcessorProvider: ProcessorProvider = {
       };
     }
 
-    let response: Response;
-    try {
-      response = await fetch(safeEndpoint, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          ...(secret ? { "x-processor-secret": secret } : {})
-        },
-        body: JSON.stringify(input),
-        signal: AbortSignal.timeout(processorSubmitTimeoutMs)
-      });
-    } catch (error) {
-      return {
-        accepted: false,
-        status: "failed",
-        message: error instanceof Error && error.name === "TimeoutError" ? "Processor timed out before accepting the job." : "Processor was unavailable."
-      };
-    }
-
-    if (!response.ok) {
-      const message = await response
-        .text()
-        .then((text) => text.slice(0, maxProcessorErrorText))
-        .catch(() => `Processor returned ${response.status}.`);
-      return {
-        accepted: false,
-        status: "failed",
-        message
-      };
-    }
-
-    const json = (await response.json().catch(() => null)) as { externalJobId?: string; jobId?: string } | null;
-
-    return {
-      accepted: true,
-      externalJobId: json?.externalJobId ?? json?.jobId ?? null,
-      status: "queued",
-      message: "External processor accepted the job."
+    let attempt = 0;
+    let result: ProcessorSubmitResult = {
+      accepted: false,
+      status: "failed",
+      message: "Processor was unavailable."
     };
+
+    while (attempt < transientRetryCount) {
+      result = await submitToN8n(safeEndpoint, secret, input);
+      if (result.accepted) {
+        return result;
+      }
+
+      if (!result.message || !looksLikeTransientWebhookReadinessIssue(result.message) || attempt === transientRetryCount - 1) {
+        return result;
+      }
+
+      attempt += 1;
+      await delay(transientRetryDelayMs * attempt);
+    }
+
+    return result;
   },
   async getJobStatus() {
     return null;
