@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   }
 
   if (!hasYouTubeConfig()) {
-    return NextResponse.redirect(new URL("/app/settings?notice=youtube_failed", request.url), { status: 303 });
+    return NextResponse.redirect(new URL("/app/settings?notice=youtube_config_missing", request.url), { status: 303 });
   }
 
   const url = new URL(request.url);

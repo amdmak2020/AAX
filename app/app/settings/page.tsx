@@ -4,6 +4,7 @@ import { ConfirmSubmitButton } from "@/components/admin/confirm-submit-button";
 import { CsrfHiddenInput } from "@/components/security/csrf-hidden-input";
 import { getViewerWorkspace } from "@/lib/app-data";
 import { brand } from "@/lib/app-config";
+import { hasYouTubeOAuthConfig } from "@/lib/env";
 
 const noticeLabels: Record<string, string> = {
   deletion_requested: "Your deletion request was recorded and the account was locked for follow-up.",
@@ -12,7 +13,8 @@ const noticeLabels: Record<string, string> = {
   invalid_request: "That request was invalid.",
   youtube_connected: "Your YouTube account is connected and ready to publish.",
   youtube_disconnected: "Your YouTube account was disconnected.",
-  youtube_failed: "That YouTube action did not complete. Try again."
+  youtube_failed: "That YouTube action did not complete. Try again.",
+  youtube_config_missing: "YouTube publishing is not fully configured yet. Add the Google OAuth keys and app encryption key first."
 };
 
 type AppSettingsPageProps = {
@@ -27,6 +29,7 @@ function asNotice(value: string | string[] | undefined) {
 export default async function AppSettingsPage({ searchParams }: AppSettingsPageProps) {
   const workspace = await getViewerWorkspace();
   if (!workspace) return null;
+  const youtubeConfigReady = hasYouTubeOAuthConfig();
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const notice = asNotice(resolvedSearchParams?.notice);
 
@@ -65,6 +68,17 @@ export default async function AppSettingsPage({ searchParams }: AppSettingsPageP
           <p className="mt-3 leading-7 text-pearl/62">
             Connect your YouTube account once, then post finished boosted clips straight from the completed job page with title, description, tags, and schedule controls.
           </p>
+          {!youtubeConfigReady ? (
+            <div className="mt-6 rounded-lg border border-amber/30 bg-amber/10 px-4 py-4 text-sm leading-6 text-pearl/82">
+              <p className="font-black text-amber">Setup incomplete</p>
+              <p className="mt-2">
+                We still need the Google OAuth setup in Vercel before account connection can work: <code>APP_ENCRYPTION_KEY</code>, <code>YOUTUBE_CLIENT_ID</code>, and <code>YOUTUBE_CLIENT_SECRET</code>.
+              </p>
+              <p className="mt-2 text-pearl/62">
+                Google Cloud must also allow <code>https://www.autoagentx.com/api/youtube/callback</code> as an OAuth redirect URI.
+              </p>
+            </div>
+          ) : null}
           <div className="mt-6 rounded-lg border border-pearl/10 bg-ink px-4 py-4">
             {workspace.youtube?.connected ? (
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -90,7 +104,11 @@ export default async function AppSettingsPage({ searchParams }: AppSettingsPageP
                   <p className="mt-2 text-xl font-black">Connect your YouTube account</p>
                   <p className="mt-2 text-sm text-pearl/56">We use secure Google OAuth and only ask for the upload permission needed to publish your finished clips.</p>
                 </div>
-                <Button href="/api/youtube/connect?next=%2Fapp%2Fsettings">Connect YouTube</Button>
+                {youtubeConfigReady ? (
+                  <Button href="/api/youtube/connect?next=%2Fapp%2Fsettings">Connect YouTube</Button>
+                ) : (
+                  <Button disabled>Connect YouTube</Button>
+                )}
               </div>
             )}
           </div>
