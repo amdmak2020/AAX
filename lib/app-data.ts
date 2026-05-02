@@ -8,6 +8,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { toUserFacingJobErrorMessage } from "@/lib/job-errors";
 import { materializeRemoteOutputVideo, resolveStoredOutputVideoUrl } from "@/lib/storage/supabase-storage";
 import { sanitizeSingleLineText } from "@/lib/validation";
+import type { YouTubeConnectionSummary } from "@/lib/youtube";
 
 type SubscriptionRow = {
   plan_key: PlanKey;
@@ -54,6 +55,7 @@ type ViewerProfile = {
 type ViewerWorkspace = {
   profile: ViewerProfile;
   subscription: SubscriptionRow;
+  youtube: YouTubeConnectionSummary | null;
   jobs: BoostJob[];
 };
 
@@ -114,6 +116,7 @@ export async function getViewerWorkspace(): Promise<ViewerWorkspace | null> {
         stripe_subscription_id: null,
         current_period_end: null
       },
+      youtube: null,
       jobs: [] as BoostJob[]
     };
   }
@@ -129,7 +132,7 @@ export async function getViewerWorkspace(): Promise<ViewerWorkspace | null> {
 
   const ensuredSubscription = await ensureAccountRecords(user);
 
-  const [profileResult, subscriptionResult, jobsResult] = await Promise.all([
+  const [profileResult, subscriptionResult, jobsResult, youtubeResult] = await Promise.all([
     supabase
       .from("profiles")
       .select("id,email,full_name,role,is_suspended,submissions_locked,billing_locked,abuse_flags,suspended_reason")
@@ -143,7 +146,8 @@ export async function getViewerWorkspace(): Promise<ViewerWorkspace | null> {
       )
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
-      .limit(30)
+      .limit(30),
+    supabase.from("youtube_connections").select("channel_id,channel_title,channel_thumbnail_url,updated_at").eq("user_id", user.id).maybeSingle()
   ]);
 
   return {
@@ -172,6 +176,15 @@ export async function getViewerWorkspace(): Promise<ViewerWorkspace | null> {
             stripe_subscription_id: ensuredSubscription.stripe_subscription_id,
             current_period_end: ensuredSubscription.current_period_end
           } satisfies SubscriptionRow),
+    youtube: youtubeResult.error
+      ? null
+      : ({
+          connected: Boolean(youtubeResult.data),
+          channelId: youtubeResult.data?.channel_id ?? null,
+          channelTitle: youtubeResult.data?.channel_title ?? null,
+          channelThumbnailUrl: youtubeResult.data?.channel_thumbnail_url ?? null,
+          updatedAt: youtubeResult.data?.updated_at ?? null
+        } satisfies YouTubeConnectionSummary),
     jobs: await Promise.all(((jobsResult.data ?? []) as BoostJobRow[]).map(mapBoostJob))
   };
 }

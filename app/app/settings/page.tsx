@@ -9,7 +9,10 @@ const noticeLabels: Record<string, string> = {
   deletion_requested: "Your deletion request was recorded and the account was locked for follow-up.",
   csrf_failed: "The security token expired. Refresh and try again.",
   unexpected_fields: "Unexpected form data was rejected.",
-  invalid_request: "That request was invalid."
+  invalid_request: "That request was invalid.",
+  youtube_connected: "Your YouTube account is connected and ready to publish.",
+  youtube_disconnected: "Your YouTube account was disconnected.",
+  youtube_failed: "That YouTube action did not complete. Try again."
 };
 
 type AppSettingsPageProps = {
@@ -55,6 +58,42 @@ export default async function AppSettingsPage({ searchParams }: AppSettingsPageP
           <p className="mt-3 leading-7 text-pearl/62">
             Subtitle style, default preset, and preferred platform defaults can live here as the product grows.
           </p>
+        </Card>
+
+        <Card>
+          <h2 className="text-2xl font-black">YouTube publishing</h2>
+          <p className="mt-3 leading-7 text-pearl/62">
+            Connect your YouTube account once, then post finished boosted clips straight from the completed job page with title, description, tags, and schedule controls.
+          </p>
+          <div className="mt-6 rounded-lg border border-pearl/10 bg-ink px-4 py-4">
+            {workspace.youtube?.connected ? (
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm font-black uppercase text-mint">Connected</p>
+                  <p className="mt-2 text-xl font-black">{workspace.youtube.channelTitle ?? "YouTube account connected"}</p>
+                  <p className="mt-2 text-sm text-pearl/56">Finished videos can now be posted or scheduled from the job page.</p>
+                </div>
+                <form action="/api/youtube/disconnect" method="post">
+                  <CsrfHiddenInput />
+                  <ConfirmSubmitButton
+                    className="rounded-lg border border-coral/30 bg-coral/10 px-4 py-3 text-left font-semibold text-coral transition hover:bg-coral/15"
+                    confirmMessage="Disconnect your YouTube account from AutoAgentX?"
+                  >
+                    Disconnect YouTube
+                  </ConfirmSubmitButton>
+                </form>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm font-black uppercase text-violet">Not connected</p>
+                  <p className="mt-2 text-xl font-black">Connect your YouTube account</p>
+                  <p className="mt-2 text-sm text-pearl/56">We use secure Google OAuth and only ask for the upload permission needed to publish your finished clips.</p>
+                </div>
+                <Button href="/api/youtube/connect?next=%2Fapp%2Fsettings">Connect YouTube</Button>
+              </div>
+            )}
+          </div>
         </Card>
 
         <Card>

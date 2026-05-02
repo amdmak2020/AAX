@@ -21,6 +21,16 @@ export function validateProductionBuildEnv() {
     required.add("N8N_PROCESSOR_ENDPOINT");
   }
 
+  const wantsYouTubePublishing = Boolean(
+    process.env.YOUTUBE_CLIENT_ID?.trim() || process.env.YOUTUBE_CLIENT_SECRET?.trim() || process.env.APP_ENCRYPTION_KEY?.trim()
+  );
+
+  if (wantsYouTubePublishing) {
+    required.add("YOUTUBE_CLIENT_ID");
+    required.add("YOUTUBE_CLIENT_SECRET");
+    required.add("APP_ENCRYPTION_KEY");
+  }
+
   const missing = [...required].filter((name) => !process.env[name]?.trim());
   if (missing.length > 0) {
     throw new Error(`Production build is missing required environment variables: ${missing.join(", ")}`);

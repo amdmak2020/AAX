@@ -112,6 +112,37 @@ create table public.webhook_events (
   processed_at timestamptz
 );
 
+create table if not exists public.youtube_connections (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  channel_id text check (channel_id is null or char_length(channel_id) <= 255),
+  channel_title text check (channel_title is null or char_length(channel_title) <= 120),
+  channel_thumbnail_url text check (channel_thumbnail_url is null or char_length(channel_thumbnail_url) <= 2048),
+  encrypted_access_token text not null check (char_length(encrypted_access_token) <= 4096),
+  encrypted_refresh_token text check (encrypted_refresh_token is null or char_length(encrypted_refresh_token) <= 4096),
+  access_token_expires_at timestamptz,
+  scope text check (scope is null or char_length(scope) <= 500),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  last_used_at timestamptz
+);
+
+create table if not exists public.youtube_publications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  job_id uuid not null,
+  youtube_video_id text check (youtube_video_id is null or char_length(youtube_video_id) <= 255),
+  title text not null check (char_length(title) between 3 and 100),
+  description text not null default '' check (char_length(description) <= 5000),
+  tags text[] not null default '{}'::text[],
+  privacy_status text not null check (privacy_status in ('private', 'unlisted', 'public')),
+  publish_at timestamptz,
+  status text not null default 'queued' check (status in ('queued', 'uploaded', 'scheduled', 'failed')),
+  error_message text check (error_message is null or char_length(error_message) <= 1000),
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 insert into public.plans (key, name, monthly_credits, max_file_size_mb)
 values
   ('free', 'Free', 2, 150),
@@ -133,6 +164,8 @@ alter table public.usage_ledger enable row level security;
 alter table public.boost_jobs enable row level security;
 alter table public.admin_events enable row level security;
 alter table public.webhook_events enable row level security;
+alter table public.youtube_connections enable row level security;
+alter table public.youtube_publications enable row level security;
 
 create policy "Users read own profile" on public.profiles for select using (auth.uid() = id);
 create policy "Users update own profile" on public.profiles for update using (auth.uid() = id) with check (auth.uid() = id);
@@ -145,6 +178,8 @@ create policy "Users read own usage ledger" on public.usage_ledger for select us
 create policy "Users read own boost jobs" on public.boost_jobs for select using (auth.uid() = user_id);
 create policy "Users insert own boost jobs" on public.boost_jobs for insert with check (auth.uid() = user_id);
 create policy "Users update own boost jobs" on public.boost_jobs for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "Users read own youtube connections" on public.youtube_connections for select using (auth.uid() = user_id);
+create policy "Users read own youtube publications" on public.youtube_publications for select using (auth.uid() = user_id);
 
 insert into storage.buckets (id, name, public)
 values ('source-videos', 'source-videos', false)
@@ -213,6 +248,10 @@ create unique index webhook_events_provider_dedupe_idx on public.webhook_events(
 create index webhook_events_target_user_idx on public.webhook_events(target_user_id, received_at desc);
 create index webhook_events_status_idx on public.webhook_events(status, received_at desc);
 create index webhook_events_event_id_idx on public.webhook_events(provider, event_id);
+create index if not exists youtube_publications_user_created_idx on public.youtube_publications(user_id, created_at desc);
+create index if not exists youtube_publications_job_idx on public.youtube_publications(job_id, created_at desc);
+create index if not exists youtube_publications_status_idx on public.youtube_publications(status, created_at desc);
+create index if not exists youtube_connections_channel_idx on public.youtube_connections(channel_id);
 
 do $$
 begin

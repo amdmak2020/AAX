@@ -12,6 +12,10 @@ export function getAppUrl() {
   return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 }
 
+export function hasAppEncryptionKey() {
+  return Boolean(process.env.APP_ENCRYPTION_KEY?.trim());
+}
+
 export function isSupabaseConfigured() {
   return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 }
@@ -95,6 +99,18 @@ export function getGumroadProductId(planKey: Exclude<PlanKey, "free">) {
 
 export function getGumroadWebhookSecret() {
   return process.env.GUMROAD_WEBHOOK_SECRET?.trim() ?? null;
+}
+
+export function getYouTubeClientId() {
+  return process.env.YOUTUBE_CLIENT_ID?.trim() ?? null;
+}
+
+export function getYouTubeClientSecret() {
+  return process.env.YOUTUBE_CLIENT_SECRET?.trim() ?? null;
+}
+
+export function hasYouTubeOAuthConfig() {
+  return Boolean(getYouTubeClientId() && getYouTubeClientSecret() && hasAppEncryptionKey());
 }
 
 export function hasUpstashRateLimitConfig() {

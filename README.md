@@ -22,6 +22,7 @@ Production-minded MVP scaffold for a self-serve creator SaaS that improves short
 - File upload flow for source clips
 - Boost job creation and status tracking
 - Gumroad checkout links, billing management handoff, and webhook scaffold
+- YouTube connection and publish / schedule flow for completed clips
 - Supabase schema with plans, subscriptions, usage ledger, boost jobs, and RLS
 
 ## Local setup
@@ -44,6 +45,10 @@ copy .env.example .env.local
 
 [supabase/schema.sql](C:/Users/asus/Documents/Codex/2026-04-20-i-want-to-build-a-saas/supabase/schema.sql)
 
+If your project is already live and you only need the YouTube publishing tables, run:
+
+[supabase/youtube-publishing.sql](C:/Users/asus/Documents/Codex/2026-04-20-i-want-to-build-a-saas/supabase/youtube-publishing.sql)
+
 5. Start the app:
 
 ```bash
@@ -61,6 +66,7 @@ npm run dev -- --hostname localhost --port 3001
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `APP_ENCRYPTION_KEY`
 
 ### Gumroad
 
@@ -92,6 +98,11 @@ npm run dev -- --hostname localhost --port 3001
 
 - `ALERT_WEBHOOK_URL` optional, for forwarding critical operational alerts to Slack, Discord, Better Stack, PagerDuty intake, or another incident channel
 
+### YouTube publishing
+
+- `YOUTUBE_CLIENT_ID`
+- `YOUTUBE_CLIENT_SECRET`
+
 `N8N_WEBHOOK_URL` and `N8N_WEBHOOK_SECRET` are still accepted as legacy aliases if your existing external flow already uses those names. The production build guard also accepts `N8N_WEBHOOK_SECRET` as the legacy alias for `N8N_PROCESSOR_SECRET`.
 
 Use separate keys for development, preview / staging, and production. If a secret was pasted into chat, logs, screenshots, or a public issue, rotate it immediately and replace it in your hosting environment manager.
@@ -107,6 +118,8 @@ Run the schema file in the Supabase SQL Editor. It creates:
 - `boost_jobs`
 - `admin_events`
 - `webhook_events`
+- `youtube_connections`
+- `youtube_publications`
 
 It also:
 
@@ -135,6 +148,44 @@ http://localhost:3001/app
 ```
 
 in the Supabase redirect allow list.
+
+## YouTube publishing setup
+
+The app can connect a creator's YouTube account and then let them post or schedule a finished clip directly from the completed job page.
+
+### Google Cloud
+
+1. Create a Google Cloud project.
+2. Enable **YouTube Data API v3**.
+3. Create an OAuth 2.0 web application client.
+4. Add these redirect URIs:
+
+```txt
+https://www.autoagentx.com/api/youtube/callback
+http://localhost:3001/api/youtube/callback
+```
+
+5. Put the OAuth credentials into:
+
+- `YOUTUBE_CLIENT_ID`
+- `YOUTUBE_CLIENT_SECRET`
+
+6. Set a long random `APP_ENCRYPTION_KEY` in Vercel so stored YouTube tokens are encrypted at rest.
+
+### In-app flow
+
+1. User connects YouTube from `/app/settings`.
+2. Google redirects back to `/api/youtube/callback`.
+3. The app stores encrypted tokens in `youtube_connections`.
+4. Once a job reaches `completed`, the job page shows a **Post or schedule this clip** form.
+5. The user adds title, description, tags, privacy, and either:
+   - post now
+   - or schedule for later
+6. The server uploads the finished clip to YouTube and records the attempt in `youtube_publications`.
+
+### Scheduling behavior
+
+If the user schedules a clip, the app uploads it as **private** and sends `publishAt` to YouTube. The schedule is taken from the creator's browser-local time and converted server-side before upload.
 
 ## Storage
 
