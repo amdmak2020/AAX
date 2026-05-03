@@ -29,10 +29,23 @@ export async function GET(request: Request) {
 
   try {
     const tokenPayload = await exchangeYouTubeCode({ appUrl: url.origin, code });
-    const channel = await fetchYouTubeChannel(tokenPayload.access_token);
     const admin = createSupabaseAdminClient();
+    let channel: Awaited<ReturnType<typeof fetchYouTubeChannel>> = {
+      channelId: null,
+      channelTitle: null,
+      channelThumbnailUrl: null
+    };
 
-    await admin.from("youtube_connections").upsert(
+    try {
+      channel = await fetchYouTubeChannel(tokenPayload.access_token);
+    } catch (error) {
+      logServerError("YouTube channel lookup failed during OAuth callback", {
+        error,
+        userId: user.id
+      });
+    }
+
+    const { error } = await admin.from("youtube_connections").upsert(
       buildStoredYouTubeConnection({
         userId: user.id,
         accessToken: tokenPayload.access_token,
@@ -45,6 +58,10 @@ export async function GET(request: Request) {
       }),
       { onConflict: "user_id" }
     );
+
+    if (error) {
+      throw error;
+    }
 
     const returnTo = typeof verifiedState.returnTo === "string" && verifiedState.returnTo.startsWith("/") ? verifiedState.returnTo : "/app/settings";
     const destination = new URL(returnTo, request.url);
