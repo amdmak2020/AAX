@@ -102,6 +102,38 @@ export async function createSignedOutputVideoUrl(path: string) {
   return signedUrlResult.data.signedUrl;
 }
 
+export async function createSignedSourceVideoUrl(path: string) {
+  const supabase = createSupabaseAdminClient();
+  const signedUrlResult = await supabase.storage.from(SOURCE_VIDEOS_BUCKET).createSignedUrl(path, sourceVideoUrlTtlSeconds);
+  if (signedUrlResult.error || !signedUrlResult.data?.signedUrl) {
+    throw new Error(signedUrlResult.error?.message ?? "Could not generate a temporary source video URL.");
+  }
+
+  return signedUrlResult.data.signedUrl;
+}
+
+export async function createSourceVideoSignedUploadTarget(params: { userId: string; fileName: string }) {
+  await ensureSourceVideosBucket();
+  const supabase = createSupabaseAdminClient();
+  const sanitizedFileName = sanitizeSingleLineText(params.fileName).slice(0, 255);
+  const extensionMatch = sanitizedFileName.match(/\.([a-z0-9]{2,8})$/i);
+  const extension = extensionMatch?.[1]?.toLowerCase() ?? "mp4";
+  const path = `${params.userId}/staged/${buildRandomStorageName(extension)}`;
+  const signedUploadResult = await supabase.storage.from(SOURCE_VIDEOS_BUCKET).createSignedUploadUrl(path);
+
+  if (signedUploadResult.error || !signedUploadResult.data?.token) {
+    throw new Error(signedUploadResult.error?.message ?? "Could not create an upload slot for that clip.");
+  }
+
+  return {
+    bucket: SOURCE_VIDEOS_BUCKET,
+    path,
+    token: signedUploadResult.data.token
+  };
+}
+
+export const createSignedSourceVideoUploadTarget = createSourceVideoSignedUploadTarget;
+
 export async function materializeRemoteOutputVideo(params: {
   userId: string;
   jobId: string;

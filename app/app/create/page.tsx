@@ -1,11 +1,10 @@
+import crypto from "node:crypto";
 import { AlertTriangle, Sparkles } from "lucide-react";
-import { FileUploadDropzone } from "@/components/app/file-upload-dropzone";
-import { CsrfHiddenInput } from "@/components/security/csrf-hidden-input";
-import { IdempotencyHiddenInput } from "@/components/security/idempotency-hidden-input";
+import { CreateBoostJobForm } from "@/components/app/create-boost-job-form";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { planCatalog, sourceUploadMaxMb } from "@/lib/app-config";
 import { getViewerWorkspace } from "@/lib/app-data";
+import { getCsrfTokenForRender } from "@/lib/csrf";
 import { bypassUsageLimits } from "@/lib/env";
 
 const createMessages = {
@@ -92,6 +91,8 @@ export default async function CreateBoostJobPage({
   const plan = planCatalog[workspace.subscription.plan_key];
   const uploadLimitMb = Math.min(plan.maxFileSizeMb, sourceUploadMaxMb);
   const usageBypassed = bypassUsageLimits();
+  const csrfToken = await getCsrfTokenForRender();
+  const idempotencyKey = crypto.randomUUID();
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -137,63 +138,15 @@ export default async function CreateBoostJobPage({
         </div>
       ) : null}
 
-      <form action="/api/boost-jobs" className="mt-8" method="post" encType="multipart/form-data">
-        <CsrfHiddenInput />
-        <IdempotencyHiddenInput />
-        <Card className="relative overflow-hidden border-mint/20 bg-[radial-gradient(circle_at_top,rgba(61,239,176,0.14),transparent_40%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))] p-8 md:p-10">
-          <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-mint/50 to-transparent" />
-
-          <div className="grid gap-6">
-            <div>
-              <p className="text-sm font-black uppercase tracking-[0.18em] text-mint/78">Source</p>
-              <h2 className="mt-3 text-2xl font-black md:text-3xl">Choose one input</h2>
-            </div>
-
-            <div>
-              <span className="text-sm font-black">Upload a source clip</span>
-              <div className="mt-2">
-                <FileUploadDropzone maxFileSizeMb={uploadLimitMb} name="sourceFile" required={false} />
-              </div>
-            </div>
-
-            <div className="text-center text-xs font-bold uppercase tracking-[0.28em] text-pearl/32">or paste a link</div>
-
-            <label className="grid gap-2">
-              <span className="text-sm font-black">YouTube or X URL</span>
-              <input
-                className="rounded-lg border border-pearl/10 bg-ink px-4 py-4 text-base outline-none transition focus:border-mint focus:shadow-[0_0_0_4px_rgba(61,239,176,0.14)]"
-                defaultValue={defaultSourceUrl}
-                name="sourceUrl"
-                placeholder="https://youtube.com/... or https://x.com/..."
-                type="url"
-              />
-            </label>
-
-            <label className="grid gap-2">
-              <span className="text-sm font-black">Description</span>
-              <textarea
-                className="min-h-28 rounded-lg border border-pearl/10 bg-ink px-4 py-4 text-base outline-none transition focus:border-mint focus:shadow-[0_0_0_4px_rgba(61,239,176,0.14)]"
-                defaultValue={defaultDescription}
-                name="description"
-                placeholder="What is happening in this clip, and what should the edit emphasize?"
-                required
-              />
-            </label>
-
-            <div className="rounded-lg border border-pearl/10 bg-ink/60 px-4 py-3 text-sm leading-6 text-pearl/60">
-              {usageBypassed ? (
-                <>Dev mode is on, so limits are bypassed while we test. Uploads are capped at {uploadLimitMb}MB.</>
-              ) : (
-                <>Your current plan includes {plan.monthlyCredits} boosts per month. Uploads are capped at {uploadLimitMb}MB.</>
-              )}
-            </div>
-
-            <Button className="min-h-14 w-full rounded-lg text-base shadow-[0_20px_60px_rgba(61,239,176,0.22)]" type="submit">
-              Make this clip more engaging
-            </Button>
-          </div>
-        </Card>
-      </form>
+      <CreateBoostJobForm
+        csrfToken={csrfToken}
+        defaultDescription={defaultDescription}
+        defaultSourceUrl={defaultSourceUrl}
+        idempotencyKey={idempotencyKey}
+        monthlyCredits={plan.monthlyCredits}
+        uploadLimitMb={uploadLimitMb}
+        usageBypassed={usageBypassed}
+      />
     </div>
   );
 }

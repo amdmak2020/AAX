@@ -14,7 +14,7 @@ import { parseSafeRemoteUrl } from "@/lib/network-security";
 import { getProcessorProvider } from "@/lib/processor/provider";
 import { applyRateLimitHeaders, enforceRateLimit } from "@/lib/request-security";
 import { logServerError } from "@/lib/secure-log";
-import { uploadSourceVideo } from "@/lib/storage/supabase-storage";
+import { createSignedSourceVideoUrl, uploadSourceVideo } from "@/lib/storage/supabase-storage";
 import { hasActiveBillingAccessForBoost } from "@/lib/subscription-access";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -24,6 +24,8 @@ import { sendOperationalAlert } from "@/lib/monitoring";
 const createBoostSchema = z.object({
   description: multilineTextSchema({ min: 1, max: 600, requiredMessage: "Add a short description before submitting.", tooLongMessage: "Keep the description under 600 characters." }),
   sourceUrl: optionalHttpUrlSchema.optional(),
+  sourceUploadPath: z.string().trim().min(1).max(255).optional(),
+  sourceUploadFileName: z.string().trim().min(1).max(255).optional(),
   idempotencyKey: z.string().trim().uuid("Refresh and try again before submitting.")
 }).strict();
 
@@ -73,6 +75,15 @@ function getProjectName(sourceUrl: string, file: File | null) {
   return "Boosted clip";
 }
 
+function getProjectNameFromFileName(sourceUrl: string, fileName: string | null) {
+  if (fileName?.trim()) {
+    const withoutExtension = sanitizeSingleLineText(fileName.replace(/\.[^.]+$/, ""));
+    return withoutExtension || "Boosted clip";
+  }
+
+  return getProjectName(sourceUrl, null);
+}
+
 function isUploadedFile(value: FormDataEntryValue | null): value is File {
   return value instanceof File && value.size > 0 && value.name.trim().length > 0;
 }
@@ -105,7 +116,17 @@ export async function POST(request: Request) {
       return respondWithCreateError(request, "csrf_failed", "Your session expired. Refresh and try again.", 403);
     }
 
-    const unexpectedFields = getUnexpectedFormFields(formData, ["sourceFile", "sourceUrl", "description", "csrfToken", "idempotencyKey"]);
+    const sourceUploadPath = formData.get("sourceUploadPath")?.toString().trim() ?? "";
+    const sourceUploadFileName = formData.get("sourceUploadFileName")?.toString().trim() ?? "";
+    const unexpectedFields = getUnexpectedFormFields(formData, [
+      "sourceFile",
+      "sourceUrl",
+      "description",
+      "csrfToken",
+      "idempotencyKey",
+      "sourceUploadPath",
+      "sourceUploadFileName"
+    ]);
     if (unexpectedFields.length > 0) {
       return respondWithCreateError(request, "unexpected_fields", "Unexpected fields were submitted.", 400);
     }
@@ -115,6 +136,8 @@ export async function POST(request: Request) {
     const parsed = createBoostSchema.safeParse({
       description: formData.get("description")?.toString(),
       sourceUrl: formData.get("sourceUrl")?.toString().trim(),
+      sourceUploadPath,
+      sourceUploadFileName,
       idempotencyKey: formData.get("idempotencyKey")?.toString()
     });
 
@@ -125,12 +148,18 @@ export async function POST(request: Request) {
 
     const hasFile = isUploadedFile(file);
     const sourceUrl = parsed.data.sourceUrl || "";
+    const sourceUploadPathValue = parsed.data.sourceUploadPath?.trim() ?? "";
+    const sourceUploadFileNameValue = parsed.data.sourceUploadFileName?.trim() ?? "";
+    const hasUploadedStorageSource = sourceUploadPathValue.length > 0;
     const hasUrl = sourceUrl.length > 0;
     const useUrlSource = hasUrl;
-    const useFileSource = hasFile && !useUrlSource;
-    const projectName = getProjectName(sourceUrl, useFileSource ? file : null);
+    const useFileSource = hasFile && !useUrlSource && !hasUploadedStorageSource;
+    const useUploadedStorageFileSource = hasUploadedStorageSource && !useUrlSource;
+    const projectName = useUploadedStorageFileSource
+      ? getProjectNameFromFileName(sourceUrl, sourceUploadFileNameValue)
+      : getProjectName(sourceUrl, useFileSource ? file : null);
 
-    if (!useFileSource && !useUrlSource) {
+    if (!useFileSource && !useUrlSource && !useUploadedStorageFileSource) {
       return respondWithCreateError(request, "missing_source", "Choose either a source upload or a YouTube / X URL.", 400);
     }
 
@@ -266,9 +295,24 @@ export async function POST(request: Request) {
     const jobId = randomUUID();
     createdJobId = jobId;
     createdUserId = user.id;
-    const source =
-      useFileSource && file
-        ? await uploadSourceVideo({ userId: user.id, jobId, file })
+    if (useUploadedStorageFileSource && (!sourceUploadPathValue.startsWith(`${user.id}/`) || sourceUploadPathValue.includes(".."))) {
+      return applyRateLimitHeaders(respondWithCreateError(request, "invalid_upload", "That uploaded clip could not be verified. Please upload it again.", 400), {
+        limit: 12,
+        remaining: limiter.remaining,
+        resetAt: limiter.resetAt,
+        store: limiter.store
+      });
+    }
+
+    const source = useFileSource && file
+      ? await uploadSourceVideo({ userId: user.id, jobId, file })
+      : useUploadedStorageFileSource
+        ? {
+            path: sourceUploadPathValue,
+            publicUrl: await createSignedSourceVideoUrl(sourceUploadPathValue),
+            fileName: sourceUploadFileNameValue || null,
+            detectedMime: null
+          }
         : {
             path: null,
             publicUrl: sourceUrl,

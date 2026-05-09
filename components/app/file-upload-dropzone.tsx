@@ -1,17 +1,21 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { MutableRefObject, useMemo, useRef, useState } from "react";
 import { UploadCloud, Video } from "lucide-react";
 import { sanitizeSingleLineText } from "@/lib/validation";
 
 export function FileUploadDropzone({
   name,
   maxFileSizeMb,
-  required = true
+  required = true,
+  inputRef: externalInputRef,
+  onFileSelected
 }: {
   name: string;
   maxFileSizeMb: number;
   required?: boolean;
+  inputRef?: MutableRefObject<HTMLInputElement | null>;
+  onFileSelected?: (file: File | null) => void;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -20,17 +24,24 @@ export function FileUploadDropzone({
   const helperText = useMemo(() => `MP4, MOV, M4V, or WebM. Up to ${maxFileSizeMb}MB.`, [maxFileSizeMb]);
 
   const handleFile = (file: File | null) => {
-    if (!file) return;
+    if (!file) {
+      setError(null);
+      setFileName(null);
+      onFileSelected?.(null);
+      return;
+    }
     const limitBytes = maxFileSizeMb * 1024 * 1024;
     if (file.size > limitBytes) {
       setError(`This file is too large for the current plan. Limit: ${maxFileSizeMb}MB.`);
       setFileName(null);
+      onFileSelected?.(null);
       if (inputRef.current) inputRef.current.value = "";
       return;
     }
 
     setError(null);
     setFileName(sanitizeSingleLineText(file.name).slice(0, 255));
+    onFileSelected?.(file);
   };
 
   return (
@@ -52,7 +63,12 @@ export function FileUploadDropzone({
           className="sr-only"
           name={name}
           onChange={(event) => handleFile(event.target.files?.[0] ?? null)}
-          ref={inputRef}
+          ref={(node) => {
+            inputRef.current = node;
+            if (externalInputRef) {
+              externalInputRef.current = node;
+            }
+          }}
           required={required}
           type="file"
         />

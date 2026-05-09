@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 import { Link as LinkIcon, UploadCloud, X } from "lucide-react";
 import { FileUploadDropzone } from "@/components/app/file-upload-dropzone";
+import { prepareBoostJobFormForSubmit } from "@/lib/source-upload-client";
 
 function buildNextPath(form: HTMLFormElement) {
   const formData = new FormData(form);
@@ -42,6 +43,10 @@ export function HomeHeroTool({
   const [showAuthGate, setShowAuthGate] = useState(false);
   const [nextPath, setNextPath] = useState("/app/create");
   const [email, setEmail] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const signupHref = useMemo(() => {
     const params = new URLSearchParams({ next: nextPath });
@@ -53,13 +58,52 @@ export function HomeHeroTool({
 
   const loginHref = useMemo(() => `/login?next=${encodeURIComponent(nextPath)}`, [nextPath]);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const getFriendlyUploadError = (error: unknown) => {
+    const message = error instanceof Error ? error.message : "";
+    if (!message) {
+      return "We couldn't upload that clip yet. Try again in a moment.";
+    }
+
+    if (/currently limited to/i.test(message) || /upload an mp4/i.test(message) || /too many clips/i.test(message)) {
+      return message;
+    }
+
+    if (/sign in before uploading/i.test(message)) {
+      return "Sign back in, refresh the page, and try the upload again.";
+    }
+
+    return "We couldn't upload that clip yet. Try again in a moment.";
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     if (isLoggedIn) {
+      if (!selectedFile) {
+        return;
+      }
+
+      event.preventDefault();
+      setSubmitError(null);
+      setIsSubmitting(true);
+
+      try {
+        await prepareBoostJobFormForSubmit({
+          form: event.currentTarget,
+          csrfToken
+        });
+        event.currentTarget.submit();
+      } catch (error) {
+        if (fileInputRef.current) {
+          fileInputRef.current.disabled = false;
+        }
+        setSubmitError(getFriendlyUploadError(error));
+        setIsSubmitting(false);
+      }
       return;
     }
 
     event.preventDefault();
     const form = event.currentTarget;
+    setSubmitError(null);
     setNextPath(buildNextPath(form));
     setShowAuthGate(true);
   };
@@ -98,7 +142,13 @@ export function HomeHeroTool({
                   Upload a source clip
                 </span>
                 <div className="compact-dropzone mt-2">
-                  <FileUploadDropzone maxFileSizeMb={uploadLimitMb} name="sourceFile" required={false} />
+                  <FileUploadDropzone
+                    inputRef={fileInputRef}
+                    maxFileSizeMb={uploadLimitMb}
+                    name="sourceFile"
+                    onFileSelected={setSelectedFile}
+                    required={false}
+                  />
                 </div>
               </div>
             </div>
@@ -118,12 +168,15 @@ export function HomeHeroTool({
                 Free plan available. No card needed. Uploads are capped at {uploadLimitMb}MB.
               </div>
 
+              {submitError ? <p className="text-sm font-semibold text-coral">{submitError}</p> : null}
+
               <button
                 className="button-sheen inline-flex min-h-14 items-center justify-center rounded-lg bg-mint px-5 py-3 text-base font-bold text-ink transition focus:outline-none focus:ring-2 focus:ring-mint/60"
                 data-button-variant="primary"
+                disabled={isSubmitting}
                 type="submit"
               >
-                Get free clips
+                {isSubmitting ? "Uploading clip..." : "Get free clips"}
               </button>
             </div>
           </div>
