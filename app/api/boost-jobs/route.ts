@@ -24,8 +24,14 @@ import { sendOperationalAlert } from "@/lib/monitoring";
 const createBoostSchema = z.object({
   description: multilineTextSchema({ min: 1, max: 600, requiredMessage: "Add a short description before submitting.", tooLongMessage: "Keep the description under 600 characters." }),
   sourceUrl: optionalHttpUrlSchema.optional(),
-  sourceUploadPath: z.string().trim().min(1).max(255).optional(),
-  sourceUploadFileName: z.string().trim().min(1).max(255).optional(),
+  sourceUploadPath: z.preprocess(
+    (value) => (typeof value === "string" && value.trim().length === 0 ? undefined : value),
+    z.string().trim().min(1).max(255).optional()
+  ),
+  sourceUploadFileName: z.preprocess(
+    (value) => (typeof value === "string" && value.trim().length === 0 ? undefined : value),
+    z.string().trim().min(1).max(255).optional()
+  ),
   idempotencyKey: z.string().trim().uuid("Refresh and try again before submitting.")
 }).strict();
 
@@ -143,7 +149,17 @@ export async function POST(request: Request) {
 
     if (!parsed.success) {
       const descriptionError = parsed.error.flatten().fieldErrors.description?.[0];
-      return respondWithCreateError(request, "missing_description", descriptionError ?? "Invalid boost job payload.", 400);
+      const sourceUrlError = parsed.error.flatten().fieldErrors.sourceUrl?.[0];
+      const sourceUploadError = parsed.error.flatten().fieldErrors.sourceUploadPath?.[0] ?? parsed.error.flatten().fieldErrors.sourceUploadFileName?.[0];
+      const message = descriptionError ?? sourceUrlError ?? sourceUploadError ?? "Invalid boost job payload.";
+      const code = descriptionError
+        ? "missing_description"
+        : sourceUrlError
+          ? "unsupported_source"
+          : sourceUploadError
+            ? "invalid_upload"
+            : "generic";
+      return respondWithCreateError(request, code, message, 400);
     }
 
     const hasFile = isUploadedFile(file);
@@ -423,7 +439,7 @@ export async function POST(request: Request) {
       preset: DEFAULT_PRESET,
       targetPlatform: DEFAULT_TARGET_PLATFORM,
       description: parsed.data.description,
-      sourceType: useFileSource ? "upload" : "external-url",
+      sourceType: useFileSource || useUploadedStorageFileSource ? "upload" : "external-url",
       sourceVideoUrl: source.publicUrl,
       sourceFileName: source.fileName,
       callbackUrl: `${getAppUrl()}/api/webhooks/processor`,
